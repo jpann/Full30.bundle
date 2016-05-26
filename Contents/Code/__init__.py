@@ -55,7 +55,7 @@ def Channel_Recent(title, channel_url):
     
     recent_videos = full30.get_recent_by_page(channel_url, 1)
     
-    for video in recent_videos:
+    for video in recent_videos['videos']:
         url = video['url']
         title = video['title']
         
