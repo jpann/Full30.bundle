@@ -40,7 +40,7 @@ def MainMenu():
 			Callback(
 			    Channel_Recent,
 			    title = title,
-			    channel = channel['url']
+			    channel_url = channel['url']
 			),
 		    title = title
 		)
