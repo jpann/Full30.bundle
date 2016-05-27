@@ -51,12 +51,18 @@ def MainMenu():
 ##########################################################################################
 @route("/video/fullthirty/Recent")
 def Channel_Recent(title, channel_url):
+	
+    container = Container.MP4
+    video_codec = VideoCodec.H264
+    audio_codec = AudioCodec.AAC
+    audio_channels = 2
+    
     oc = ObjectContainer(title2 = title)
     
     recent_videos = full30.get_recent_by_page(channel_url, 1)
     
     for video in recent_videos['videos']:
-        url = video['url']
+        url = video['mp4_url']
         title = video['title']
         
         try:
@@ -64,24 +70,55 @@ def Channel_Recent(title, channel_url):
         except:
             thumb = R(ICON)
             
-        summary = title
-	originally_available_at = None
-	show = title
-	index = None
-	duration = None
+	episode = CreateEpisodeObject(url, title, title, thumb, False)
 	
-	oc.add(
-            EpisodeObject(
-                url = url,
-                title = title,
-                thumb = thumb,
-                summary = summary,
-                originally_available_at = originally_available_at,
-                show = show,
-                index = index,
-                duration = duration
-                
-            )
-        )
+	oc.add(episode)
         
     return oc
+
+def CreateEpisodeObject(url, title, summary, thumbnail = None, include_container=False):
+    container = Container.MP4
+    video_codec = VideoCodec.H264
+    audio_codec = AudioCodec.AAC
+    audio_channels = 2
+    
+    Log("CreateEpisodeObject: {0}".format(url))
+
+    track_object = EpisodeObject(
+        key = Callback(
+            CreateEpisodeObject,
+            url=url,
+            title=title,
+	    summary = summary,
+            thumbnail=thumbnail,
+            include_container=True
+        ),
+        rating_key = title,
+        title = title,
+        summary = title,
+        thumb=thumbnail,
+        originally_available_at = None,
+        duration = None,
+        producers = [],
+        show = title,
+        items = [
+            MediaObject(
+                parts = [
+                    PartObject(key=Callback(PlayVideo, url=url))
+                ],
+                container = container,
+                video_codec = video_codec,
+                audio_codec = audio_codec,
+                audio_channels = audio_channels,
+            )
+        ]
+    )
+
+    if include_container:
+        return ObjectContainer(objects=[track_object])
+    else:
+        return track_object
+
+def PlayVideo(url):
+    return IndirectResponse(VideoClipObject, key=url)
+	
