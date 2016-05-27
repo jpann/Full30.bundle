@@ -82,7 +82,7 @@ class Full30:
             v_title = video['title']
             v_url = self.video_url.format(v_hash)
             v_channel = recent['title']
-	    v_mp4_url = "https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}/640x360.mp4".format(recent['slug'], v_hash)
+            v_mp4_url = "https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}/640x360.mp4".format(recent['slug'], v_hash)
             
             recent['videos'].append({ "title" : v_title, "url" : v_url, "thumbnail" : v_thumbnail, "channel": v_channel, "mp4_url" : v_mp4_url })
         

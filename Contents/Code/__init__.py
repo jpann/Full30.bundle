@@ -6,17 +6,15 @@ ICON  = 'icon-default.jpg'
 
 HTTP_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/536.26.17 (KHTML, like Gecko) Version/6.0.2 Safari/536.26.17"
 
+ROUTE = "/video/fullthirty"
 BASE_URL = "https://www.full30.com"
 
 full30 = Full30(BASE_URL)
 
-##########################################################################################
 def Start():
-    # Setup the default attributes for the ObjectContainer
     ObjectContainer.title1 = TITLE
     ObjectContainer.art    = R(ART)
 
-    # Setup the default attributes for the other objects
     DirectoryObject.thumb = R(ICON)
     DirectoryObject.art   = R(ART)
     VideoClipObject.thumb = R(ICON)
@@ -25,100 +23,115 @@ def Start():
     HTTP.CacheTime             = CACHE_1HOUR
     HTTP.Headers['User-agent'] = HTTP_USER_AGENT
     
-    ##########################################################################################
-@handler('/video/fullthirty', TITLE, thumb = ICON, art = ART)
+@handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
     oc = ObjectContainer()
     
     channels = full30.get_channels()
     
     for channel in channels:
-	    title = channel['name']
-	    oc.add(
-		DirectoryObject(
-		    key =
+        title = channel['name']
+        oc.add(DirectoryObject(
+            key =
 			Callback(
-			    Channel_Recent,
+			    Channel_Menu,
 			    title = title,
-			    channel_url = channel['url']
-			),
-		    title = title
-		)
-	    )
+			    channel_url = channel['url'],
+                thumbnail = channel['thumbnail']
+		    ),
+		    title = title,
+            thumb = channel['thumbnail']
+		))
     
     return oc
 
-##########################################################################################
-@route("/video/fullthirty/Recent")
-def Channel_Recent(title, channel_url):
-	
-    container = Container.MP4
-    video_codec = VideoCodec.H264
-    audio_codec = AudioCodec.AAC
-    audio_channels = 2
-    
+# 
+# List Featured and Recent folders for the channel
+#
+@route(ROUTE + "/Channel")
+def Channel_Menu(title, channel_url, thumbnail):
     oc = ObjectContainer(title2 = title)
-    
-    recent_videos = full30.get_recent_by_page(channel_url, 1)
-    
-    for video in recent_videos['videos']:
-        url = video['mp4_url']
-        title = video['title']
+
+    # Display Featured directory
+    oc.add(DirectoryObject(
+        key = 
+        Callback(
+            Channel_Featured,
+            title = "Featured Videos",
+            channel_url = channel_url
+        ),
+        title = "Featured Videos",
+        thumb = thumbnail
+    ))
+
+    # Display Recent directory
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            Channel_Recent,
+            title = "Recent Videos",
+            channel_url = channel_url
+        ),
+        title = "Recent Videos",
+        thumb = thumbnail
+    ))
+
+    return oc
         
-        try:
-            thumb =video['thumbnail']
-        except:
-            thumb = R(ICON)
+
+@route(ROUTE + "/Recent")
+def Channel_Recent(title, channel_url, page=1):
+    oc = ObjectContainer(title2 = title)
+
+    recent_videos = full30.get_recent_by_page(channel_url, page)
+    
+    limit = recent_videos['pages']
+
+    for video in recent_videos['videos']:
+        url = video['url']
+        title = video['title']
+        thumb = video['thumbnail']
+        
+        oc.add(VideoClipObject(
+            url = url,
+            title = title,
+            summary = title,
+            thumb = thumb
+        ))	
+
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                Channel_Recent,
+                title = "Recent Videos - Page {0}".format(next_page),
+                channel_url = channel_url,
+                page = next_page
+            ),
+            title = "Page {0}".format(next_page),
+            summary = "View more videos"
+       ))
             
-	episode = CreateEpisodeObject(url, title, title, thumb, False)
-	
-	oc.add(episode)
         
     return oc
 
-def CreateEpisodeObject(url, title, summary, thumbnail = None, include_container=False):
-    container = Container.MP4
-    video_codec = VideoCodec.H264
-    audio_codec = AudioCodec.AAC
-    audio_channels = 2
-    
-    Log("CreateEpisodeObject: {0}".format(url))
+@route(ROUTE + "/Featured")
+def Channel_Featured(title, channel_url):
+    oc = ObjectContainer(title2 = title)
 
-    track_object = EpisodeObject(
-        key = Callback(
-            CreateEpisodeObject,
-            url=url,
-            title=title,
-	    summary = summary,
-            thumbnail=thumbnail,
-            include_container=True
-        ),
-        rating_key = title,
-        title = title,
-        summary = title,
-        thumb=thumbnail,
-        originally_available_at = None,
-        duration = None,
-        producers = [],
-        show = title,
-        items = [
-            MediaObject(
-                parts = [
-                    PartObject(key=Callback(PlayVideo, url=url))
-                ],
-                container = container,
-                video_codec = video_codec,
-                audio_codec = audio_codec,
-                audio_channels = audio_channels,
-            )
-        ]
-    )
+    featured_videos = full30.get_featured(channel_url)
 
-    if include_container:
-        return ObjectContainer(objects=[track_object])
-    else:
-        return track_object
+    for video in featured_videos:
+        url = video['url']
+        title = video['title']
+        thumb = video['thumbnail']
 
-def PlayVideo(url):
-    return IndirectResponse(VideoClipObject, key=url)
-	
+        oc.add(VideoClipObject(
+            url = url,
+            title = title,
+            summary = title,
+            thumb = thumb
+        ))
+
+    return oc
