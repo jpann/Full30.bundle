@@ -12,6 +12,7 @@ class Full30:
         self.video_url = self.url + "/video/{0}"
         self.api_recent_url = self.url + "/api/v1.0/channel/{0}/recent-videos?page={1}"
         self.thumbnail_url = self.url + "/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg"
+	    self.mp4_url = "https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}/640x360.mp4"
        
     def get_channels(self):
         channels = []
