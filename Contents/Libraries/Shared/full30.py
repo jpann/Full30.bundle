@@ -1,10 +1,17 @@
 import urllib2
 from bs4 import BeautifulSoup
 import requests
+import ssl
 
 class Full30:
     def __init__(self, url):
-        self.opener = urllib2.build_opener()
+        # Avoid SSL errors
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx_verify_mode = ssl.CERT_NONE
+
+        self.opener = urllib2.build_opener(urllib2.HTTPSHandler(context = ctx))
+        
         self.opener.addheaders = [('User-agent', 'Mozilla/5.0')]
         
         self.url = url
