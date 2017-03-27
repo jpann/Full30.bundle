@@ -1,6 +1,8 @@
 from full30 import Full30
 
-TITLE = 'Full30.com'
+VERSION = ' V1.0.3'
+NAME = 'Unofficial Full30.com Plex Channel'
+TITLE = 'Unofficial Full30.com Plex Channel'
 ART   = 'art-default.jpg'
 ICON  = 'icon-default.jpg'
 
@@ -121,6 +123,8 @@ def Channel_Featured(title, channel_url):
     oc = ObjectContainer(title2 = title)
 
     featured_videos = full30.get_featured(channel_url)
+
+    Log.Info(featured_videos)
 
     for video in featured_videos:
         url = video['url']

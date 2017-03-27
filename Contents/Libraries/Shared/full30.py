@@ -2,16 +2,16 @@ import urllib2
 from bs4 import BeautifulSoup
 import requests
 import ssl
+import re
 
 class Full30:
     def __init__(self, url):
-        # Avoid SSL errors
+        # Avoid cert errors
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
-        ctx_verify_mode = ssl.CERT_NONE
+        ctx.verify_mode = ssl.CERT_NONE
 
-        self.opener = urllib2.build_opener(urllib2.HTTPSHandler(context = ctx))
-        
+        self.opener = urllib2.build_opener(urllib2.HTTPSHandler(context=ctx))
         self.opener.addheaders = [('User-agent', 'Mozilla/5.0')]
         
         self.url = url
@@ -19,8 +19,7 @@ class Full30:
         self.video_url = self.url + "/video/{0}"
         self.api_recent_url = self.url + "/api/v1.0/channel/{0}/recent-videos?page={1}"
         self.thumbnail_url = self.url + "/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg"
-	    self.mp4_url = "https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}/640x360.mp4"
-       
+
     def get_channels(self):
         channels = []
 
@@ -29,12 +28,14 @@ class Full30:
 
         soup = BeautifulSoup(data, "html.parser")
 
-        videostreams = soup.find(class_="video-stream")
+        videostreams = soup.find(class_="small-12 medium-12 large-8 columns")
 
-        for video in videostreams.find_all('div'):
-            channel_url = self.url + video.find('a').get('href')
-            channel_name = video.find('h4', class_='thumbnail-title').string.encode('ascii', 'ignore').decode('ascii')
-            channel_thumbnail = "http:" + video.find('img', class_="thumbnail").get('src')
+        for video in videostreams.find_all('div', class_='channel-item'):
+            channel_url = self.url + video.find('a', class_='channel-item-link').get('href')
+            
+            channel_name = video.find('h2', class_='text-uppercase strong channel-title').string.encode('ascii', 'ignore').decode('ascii')
+            channel_thumbnail = self.url + video.find('img').get('src')
+            #channel_desc = video.find('p', class_='hide-for-small-only')            
 
             channels.append({ "name" : channel_name, "url" : channel_url, "thumbnail" : channel_thumbnail })
 
@@ -47,27 +48,35 @@ class Full30:
         data = html.read()
 
         soup = BeautifulSoup(data, "html.parser")
-
-        featured_videos = soup.find(class_="thumbnail-wrapper featured-thumbnail-wrapper")
+        
+        featured_videos = soup.find(class_=re.compile("featured-row"))
         
         if featured_videos:
-            for video in featured_videos.find_all('div', class_="thumbnail-box"):
+            for video in featured_videos.find_all('div', class_="recent-item"):
                 video_url = self.url + video.find('a').get('href').encode('ascii', 'ignore').decode('ascii')
-                video_name = video.find('h4', class_='thumbnail-title').string.encode('ascii', 'ignore').decode('ascii')
-                video_thumbnail = "http:" + video.find('img', class_="thumbnail").get('src')
+                video_name = video.find('p', class_=re.compile('recent-title')).string.encode('ascii', 'ignore').decode('ascii')
+                video_thumbnail = "http:" + video.find('img', class_="recentlyAdded-pictures").get('src')
+                
+                video_metadata = self.get_video_metadata(video_url)
 
-                featured.append({ "title" : video_name, "url" : video_url, "thumbnail" : video_thumbnail })
+                featured.append(
+                    { 
+                        "title" : video_name, 
+                        "url" : video_url, 
+                        "thumbnail" : video_thumbnail ,
+                        "description" : video_metadata['desc']
+                    })
 
         return featured
     
     def get_recent_by_page(self, url, page):
         recent = { 'title' : '', 'slug' : '', 'pages' : '', 'videos' : [] }
         
-	if not page:
-		page = 1
-	
-	channel_name = url.rsplit('/', 1)[-1]
-	api_url = self.api_recent_url.format(channel_name, page)
+        if not page:
+            page = 1
+        
+        channel_name = url.rsplit('/', 1)[-1]
+        api_url = self.api_recent_url.format(channel_name, page)
         
         r = requests.get(api_url, headers={'User-Agent' : 'Mozilla/5.0'})
         
@@ -90,7 +99,7 @@ class Full30:
             v_title = video['title']
             v_url = self.video_url.format(v_hash)
             v_channel = recent['title']
-            v_mp4_url = self.mp4_url.format(recent['slug'], v_hash)
+            v_mp4_url = "https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}/854x480.mp4".format(recent['slug'], v_hash)
             
             recent['videos'].append({ "title" : v_title, "url" : v_url, "thumbnail" : v_thumbnail, "channel": v_channel, "mp4_url" : v_mp4_url })
         
@@ -133,3 +142,18 @@ class Full30:
                 video_url = video_source.get('src')
                 
         return video_url
+
+    def get_video_metadata(self, url):
+        metadata = {}
+        
+        html = self.opener.open(url)
+        data = html.read()
+        
+        soup = BeautifulSoup(data, "html.parser")
+        
+
+        metadata['desc'] = soup.find('meta', property='og:description').get('content')
+        #metadata['uploaded'] = date
+        metadata['views'] = soup.find('span', id="player-view-count").text
+        
+        return metadata

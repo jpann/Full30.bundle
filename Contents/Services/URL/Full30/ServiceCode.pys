@@ -1,11 +1,12 @@
 def MetadataObjectForURL(url):
-    page = HTML.ElementFromURL(url)
+    content = HTTP.Request(url)
+    page = HTML.ElementFromString(content)
+
+    #Log.Info('HTML-> ' + content)
 
     title = page.xpath("//head//meta[@property='og:title']")[0].get('content')
     description = page.xpath("//head//meta[@property='og:description']")[0].get('content')
     thumb = page.xpath("//head//meta[@property='og:image']")[0].get('content')
-
-    Log('Title: {0}'.format(title))    
 
     return VideoClipObject(
         title = title,
@@ -14,6 +15,8 @@ def MetadataObjectForURL(url):
         )     
 
 def MediaObjectsForURL(url):
+    Log.Info('MetadataObjectForURL - url = ' + url)
+
     return [
         MediaObject(
             video_codec = VideoCodec.H264,
@@ -26,18 +29,18 @@ def MediaObjectsForURL(url):
         )
     ]
 
-REGEX_VIDEO_URL = Regex('type=\'video/mp4; codecs="avc1.64001E, mp4a.40.2"\' src="(?P<video_url>[^"]+)"')
+REGEX_VIDEO_URL = Regex('src="(?P<video_url>https://videos.full30.com[^"]+)"')
 @indirect
 def PlayVideo(url):
-    Log('PlayVideo: ' + url)
+    Log.Info('PlayVideo: ' + url)
 
     page = HTTP.Request(url).content
 
-    Log('HTML: ' + page)
+    #Log.Info('HTML: ' + page)
     
     video_url = REGEX_VIDEO_URL.search(page).group('video_url')
     
-    Log('VideoUrl: ' + video_url)
+    #Log.Info('VideoUrl: ' + video_url)
 
     if not video_url:
         raise Ex.MediaNotAvailable
