@@ -28,14 +28,13 @@ class Full30:
 
         soup = BeautifulSoup(data, "html.parser")
 
-        videostreams = soup.find(class_="small-12 medium-12 large-8 columns")
+        videostreams = soup.find(class_="small-12 medium-4 large-4 columns show-for-large")
 
-        for video in videostreams.find_all('div', class_='channel-item'):
-            channel_url = self.url + video.find('a', class_='channel-item-link').get('href')
+        for video in videostreams.find_next('ul').find_all('li'):
+            channel_url = self.url + video.find('a').get('href')
             
-            channel_name = video.find('h2', class_='text-uppercase strong channel-title').string.encode('ascii', 'ignore').decode('ascii')
-            channel_thumbnail = self.url + video.find('img').get('src')
-            #channel_desc = video.find('p', class_='hide-for-small-only')            
+            channel_name = video.find('span', class_='channel-name text-uppercase').string.encode('ascii', 'ignore').decode('ascii')
+            channel_thumbnail = self.url + video.find('img', class_="channel-image").get('src')
 
             channels.append({ "name" : channel_name, "url" : channel_url, "thumbnail" : channel_thumbnail })
 
