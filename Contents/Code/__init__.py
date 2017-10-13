@@ -63,7 +63,7 @@ def Channel_Menu(title, channel_url, thumbnail):
             channel_url = channel_url
         ),
         title = "Featured Videos",
-        thumb = thumbnail
+        thumb = Callback(Thumb, url=thumbnail)
     ))
 
     # Display Recent directory
@@ -75,7 +75,7 @@ def Channel_Menu(title, channel_url, thumbnail):
             channel_url = channel_url
         ),
         title = "Recent Videos",
-        thumb = thumbnail
+        thumb = Callback(Thumb, url=thumbnail)
     ))
 
     return oc
@@ -98,7 +98,7 @@ def Channel_Recent(title, channel_url, page=1):
             url = url,
             title = title,
             summary = title,
-            thumb = thumb
+            thumb = Callback(Thumb, url=thumb)
         ))	
 
     next_page = int(page) + 1
@@ -135,7 +135,14 @@ def Channel_Featured(title, channel_url):
             url = url,
             title = title,
             summary = title,
-            thumb = thumb
+            thumb = Callback(Thumb, url=thumb)
         ))
 
     return oc
+
+def Thumb(url):
+  try:
+    data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
+    return DataObject(data, 'image/jpeg')
+  except:
+    return Redirect(R(ICON))

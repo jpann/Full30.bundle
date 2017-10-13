@@ -11,7 +11,7 @@ def MetadataObjectForURL(url):
     return VideoClipObject(
         title = title,
         summary = description,
-        thumb = thumb
+        thumb = Callback(Thumb, url=thumb)
         )     
 
 def MediaObjectsForURL(url):
@@ -46,4 +46,12 @@ def PlayVideo(url):
         raise Ex.MediaNotAvailable
 
     return IndirectResponse(VideoClipObject, key=video_url)
+
+    
+def Thumb(url):
+  try:
+    data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
+    return DataObject(data, 'image/jpeg')
+  except:
+    return Redirect(R(ICON))
 
