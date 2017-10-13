@@ -1,3 +1,5 @@
+import httplib
+
 def MetadataObjectForURL(url):
     content = HTTP.Request(url)
     page = HTML.ElementFromString(content)
@@ -23,7 +25,6 @@ def MediaObjectsForURL(url):
             audio_codec = AudioCodec.AAC,
             container = Container.MP4,
             audio_channels = 2,
-            video_resolution = '640',
             optimized_for_streaming = True,
             parts = [PartObject(key=Callback(PlayVideo, url = url))]
         )
@@ -36,10 +37,32 @@ def PlayVideo(url):
 
     page = HTTP.Request(url).content
 
-    #Log.Info('HTML: ' + page)
+    resolutions = ["1920x1080", "1280x720", "640x360", "854x480", "426x240"]
     
     video_url = REGEX_VIDEO_URL.search(page).group('video_url')
-    
+
+    try:
+        parts = video_url.split('//', 1)
+        domain = parts[1].split('/', 1)[0]
+
+        page = video_url.split(domain, 1)[1]
+        page = page[:page.rindex('/')]
+
+        for res in resolutions:
+            res_url = BuildVideoUrl(page, res)
+            Log.Info('res_url = ' + res_url)
+
+            conn = httplib.HTTPConnection(domain)
+            conn.request("HEAD", res_url)
+            res = conn.getresponse()
+
+            if res.status != 404:
+                video_url = "https://" + domain + "/" + res_url
+                Log.Info('2video_url = ' + video_url)
+                break
+    except Exception, e:
+        Log.Info('failed to parse url: ' + str(e))
+
     #Log.Info('VideoUrl: ' + video_url)
 
     if not video_url:
@@ -47,11 +70,15 @@ def PlayVideo(url):
 
     return IndirectResponse(VideoClipObject, key=video_url)
 
-    
 def Thumb(url):
   try:
     data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
     return DataObject(data, 'image/jpeg')
   except:
     return Redirect(R(ICON))
+
+def BuildVideoUrl(url, resolution):
+    url = url + "/" + resolution + ".mp4"
+
+    return url
 
