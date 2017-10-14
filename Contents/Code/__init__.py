@@ -106,7 +106,6 @@ def Channel_Recent(title, channel_url, page=1):
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
-            summary = title,
             thumb = Callback(Thumb, url=thumb)
         ))	
 
@@ -143,7 +142,6 @@ def Channel_Featured(title, channel_url):
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
-            summary = title,
             thumb = Callback(Thumb, url=thumb)
         ))
 
