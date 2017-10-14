@@ -105,10 +105,12 @@ def ListRecentVideos(title, page = 1):
         desc = video['desc']
         thumb = video['thumbnail']
         mp4_url = video['mp4_url']
+        views = video['views']
         
         oc.add(VideoClipObject(
             url = mp4_url,
-            title = title,
+            title = "{0} - {1}".format(channel, title),
+            summary = "{0} views - {1}".format(views, desc),
             thumb = Callback(Thumb, url=thumb)
         ))	
 
@@ -374,7 +376,8 @@ def get_all_recent(page):
                 "desc" : v_desc,
                 "channel": v_channel_title, 
                 "channel_slug" : v_channel_slug,
-                "mp4_url" : v_res_url 
+                "mp4_url" : v_res_url,
+                "views" : v_views
             })
 
     return recent
