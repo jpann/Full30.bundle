@@ -5,7 +5,7 @@ import ssl
 import re
 import json
 
-VERSION = ' V1.0.4'
+VERSION = ' V1.0.5'
 NAME = 'Unofficial Full30.com Plex Channel'
 TITLE = 'Unofficial Full30.com Plex Channel'
 ART   = 'art-default.jpg'
@@ -20,6 +20,7 @@ VIDEO_URL = BASE_URL + "/video/{0}"
 RECENT_API_URL = BASE_URL + "/api/v1.0/channel/{0}/recent-videos?page={1}"
 THUMBNAIL_URL = BASE_URL + "/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg"
 VIDEO_RESOLUTIONS_URL = "https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}"
+ALL_RECENT_API_URL = BASE_URL + "/api/v1.0/recents/all?page={0}"
 
 def Start():
     ObjectContainer.title1 = TITLE
@@ -36,9 +37,40 @@ def Start():
 @handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
     oc = ObjectContainer()
-    
+
+    #
+    # Add 'All Recent Videos' menu item
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            ListRecentVideos,
+            title = "All Recent Videos",
+            page = 1
+        ),
+        title = "All Recent Videos",
+        thumb = R(ICON)
+    ))
+
+    #
+    # Add 'All Channels' menu item
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            ListChannels,
+            title = "All Channels"
+        ),
+        title = "All Channels",
+        thumb = R(ICON)
+    ))
+
+    return oc
+#
+# List All Channels
+@route(ROUTE + "/AllChannels")
+def ListChannels(title):
+    oc = ObjectContainer(title2 = title)
+
     channels = get_channels()
-    
     for channel in channels:
         title = channel['name']
         oc.add(DirectoryObject(
@@ -52,11 +84,51 @@ def MainMenu():
 		    title = title,
             thumb = channel['thumbnail']
 		))
+
+    return oc
+
+#
+# List All Recent videos
+#
+@route(ROUTE + "/AllRecent")
+def ListRecentVideos(title, page = 1):
+    oc = ObjectContainer(title2 = title)
+
+    recent_videos = get_all_recent(page)
     
+    limit = recent_videos['pages']
+
+    for video in recent_videos['videos']:
+        url = video['url']
+        channel = video['channel']
+        title = video['title']
+        desc = video['desc']
+        thumb = video['thumbnail']
+        mp4_url = video['mp4_url']
+        
+        oc.add(VideoClipObject(
+            url = mp4_url,
+            title = title,
+            thumb = Callback(Thumb, url=thumb)
+        ))	
+
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                ListRecentVideos,
+                title = "All Recent Videos - Page {0}".format(next_page),
+                page = next_page
+            ),
+            title = "Page {0}".format(next_page),
+            summary = "View more recent videos"
+       ))
+
     return oc
 
 # 
-# List Featured and Recent folders for the channel
+# List 'Featured Videos' and 'Recent Videos' folders for the channel
 #
 @route(ROUTE + "/Channel")
 def Channel_Menu(title, channel_url, thumbnail):
@@ -66,7 +138,7 @@ def Channel_Menu(title, channel_url, thumbnail):
     oc.add(DirectoryObject(
         key = 
         Callback(
-            Channel_Featured,
+            Channel_ListFeatured,
             title = "Featured Videos",
             channel_url = channel_url
         ),
@@ -78,7 +150,7 @@ def Channel_Menu(title, channel_url, thumbnail):
     oc.add(DirectoryObject(
         key =
         Callback(
-            Channel_Recent,
+            Channel_ListRecent,
             title = "Recent Videos",
             channel_url = channel_url
         ),
@@ -87,10 +159,11 @@ def Channel_Menu(title, channel_url, thumbnail):
     ))
 
     return oc
-        
 
+#
+# List 'Recent Videos' for the channel
 @route(ROUTE + "/Recent")
-def Channel_Recent(title, channel_url, page=1):
+def Channel_ListRecent(title, channel_url, page=1):
     oc = ObjectContainer(title2 = title)
 
     recent_videos = get_recent(channel_url, page)
@@ -114,7 +187,7 @@ def Channel_Recent(title, channel_url, page=1):
         oc.add(DirectoryObject(
             key =
             Callback(
-                Channel_Recent,
+                Channel_ListRecent,
                 title = "Recent Videos - Page {0}".format(next_page),
                 channel_url = channel_url,
                 page = next_page
@@ -125,8 +198,10 @@ def Channel_Recent(title, channel_url, page=1):
 
     return oc
 
+#
+# List 'Featured Videos' for the channel
 @route(ROUTE + "/Featured")
-def Channel_Featured(title, channel_url):
+def Channel_ListFeatured(title, channel_url):
     oc = ObjectContainer(title2 = title)
 
     featured_videos = get_featured(channel_url)
@@ -147,6 +222,8 @@ def Channel_Featured(title, channel_url):
 
     return oc
 
+#
+# Get thumbnail and cache it
 def Thumb(url):
   try:
     data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
@@ -154,6 +231,8 @@ def Thumb(url):
   except:
     return Redirect(R(ICON))
 
+#
+# Get list of all channels from full30.com
 def get_channels():
     channels = []
 
@@ -172,7 +251,9 @@ def get_channels():
         channels.append({ "name" : channel_name, "url" : channel_url, "thumbnail" : channel_thumbnail })
 
     return channels
-    
+
+#
+# Get list of featured videos for specified channel url
 def get_featured(url):
     featured = []
 
@@ -208,6 +289,8 @@ def get_featured(url):
 
     return featured
 
+#
+# Get recent videos by page for specified channel
 def get_recent(url, page):
     recent = { 'title' : '', 'slug' : '', 'pages' : '', 'videos' : [] }
     
@@ -245,6 +328,60 @@ def get_recent(url, page):
     
     return recent
 
+#
+# Get all recent videos on full30.com by page
+def get_all_recent(page):
+    recent = { 'pages' : '', 'videos' : [] }
+
+    if not page:
+        page = 1
+    
+    api_url = ALL_RECENT_API_URL.format(page)
+    
+    html = HTTP.Request(api_url, cacheTime = 1200).content
+    
+    if not html:
+        return None
+        
+    data = json.loads(html)
+    
+    if not data:
+        return None
+        
+    recent['pages'] = data['pages']
+
+    for key,value in data['videos'].iteritems():
+        video = data['videos'][key]
+
+        v_channel_slug = video['channel_slug']
+        v_channel_title = video['channel_title']
+        v_desc = video['description']
+        v_hash = video['hashed_identifier']
+        v_id = video['id']
+        v_thumbnail = video['thumbnail_path']
+        v_title = video['title']
+        v_views = video['view_count']
+        v_title = video['title']
+        v_url = VIDEO_URL.format(v_hash)
+
+        v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
+        
+        recent['videos'].append(
+            { 
+                "title" : v_title, 
+                "url" : v_url, 
+                "thumbnail" : v_thumbnail, 
+                "desc" : v_desc,
+                "channel": v_channel_title, 
+                "channel_slug" : v_channel_slug,
+                "mp4_url" : v_res_url 
+            })
+
+    return recent
+
+#
+# Get metadata for specified video url
+# TODO: May end up removing this
 def get_video_metadata(url):
     metadata = {}
     
