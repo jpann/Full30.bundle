@@ -1,7 +1,10 @@
 import httplib
+import json
 
 def MetadataObjectForURL(url):
-    content = HTTP.Request(url)
+    video_hash = url.rsplit('/', 1)[-1]
+
+    content = HTTP.Request("https://www.full30.com/video/" + video_hash, cacheTime = CACHE_1MONTH).content
     page = HTML.ElementFromString(content)
 
     #Log.Info('HTML-> ' + content)
@@ -35,35 +38,11 @@ REGEX_VIDEO_URL = Regex('src="(?P<video_url>https://videos.full30.com[^"]+)"')
 def PlayVideo(url):
     Log.Info('PlayVideo: ' + url)
 
-    page = HTTP.Request(url).content
+    resolutions = get_video_resolutions(url)
 
-    resolutions = ["1920x1080", "1280x720", "640x360", "854x480", "426x240"]
-    
-    video_url = REGEX_VIDEO_URL.search(page).group('video_url')
+    video_url = resolutions[0]["mp4_url"]
 
-    try:
-        parts = video_url.split('//', 1)
-        domain = parts[1].split('/', 1)[0]
-
-        page = video_url.split(domain, 1)[1]
-        page = page[:page.rindex('/')]
-
-        for res in resolutions:
-            res_url = BuildVideoUrl(page, res)
-            Log.Info('res_url = ' + res_url)
-
-            conn = httplib.HTTPConnection(domain)
-            conn.request("HEAD", res_url)
-            res = conn.getresponse()
-
-            if res.status != 404:
-                video_url = "https://" + domain + "/" + res_url
-                Log.Info('2video_url = ' + video_url)
-                break
-    except Exception, e:
-        Log.Info('failed to parse url: ' + str(e))
-
-    #Log.Info('VideoUrl: ' + video_url)
+    Log.Info('VideoUrl: ' + video_url)
 
     if not video_url:
         raise Ex.MediaNotAvailable
@@ -77,8 +56,18 @@ def Thumb(url):
   except:
     return Redirect(R(ICON))
 
-def BuildVideoUrl(url, resolution):
-    url = url + "/" + resolution + ".mp4"
+def get_video_resolutions(url):
+    resolutions = []
 
-    return url
+    data = HTTP.Request(url, cacheTime = CACHE_1HOUR).content
+
+    lines = data.splitlines()
+
+    for line in lines:
+        line_json = json.loads(line)
+
+        if line_json["type"] == "object" and line_json["name"].endswith(".mp4"):
+            resolutions.append({ "resolution" : line_json["name"], "etag" : line_json["etag"], "mp4_url" : url + "/" + line_json["name"] })
+
+    return resolutions
 
