@@ -11,7 +11,7 @@ def MetadataObjectForURL(url):
 
     title = page.xpath("//head//meta[@property='og:title']")[0].get('content')
     description = page.xpath("//head//meta[@property='og:description']")[0].get('content')
-    thumb = page.xpath("//head//meta[@property='og:image']")[0].get('content')
+    thumb = page.xpath("//head//meta[@property='og:image']")[1].get('content')
 
     return VideoClipObject(
         title = title,
