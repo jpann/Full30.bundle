@@ -82,7 +82,7 @@ def ListChannels(title):
                 thumbnail = channel['thumbnail']
 		    ),
 		    title = title,
-            thumb = channel['thumbnail']
+            thumb = Callback(Thumb, url = channel['thumbnail'])
 		))
 
     return oc
