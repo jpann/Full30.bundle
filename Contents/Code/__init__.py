@@ -23,8 +23,13 @@ VIDEO_RESOLUTIONS_URL = "https://videos.full30.com/bitmotive/public/full30/v1.0/
 ALL_RECENT_API_URL = BASE_URL + "/api/v1.0/recents/all?page={0}"
 
 def Start():
+    Plugin.AddViewGroup("List", viewMode="List", mediaType="items")
+    Plugin.AddViewGroup("Details", viewMode="InfoList", mediaType="items")
+    Plugin.AddViewGroup("Images", viewMode="Pictures", mediaType="items")
+
     ObjectContainer.title1 = TITLE
     ObjectContainer.art    = R(ART)
+    ObjectContainer.view_group = "Details"
 
     DirectoryObject.thumb = R(ICON)
     DirectoryObject.art   = R(ART)
@@ -36,7 +41,7 @@ def Start():
     
 @handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
-    oc = ObjectContainer()
+    oc = ObjectContainer(view_group='List')
 
     #
     # Add 'All Recent Videos' menu item
@@ -68,7 +73,7 @@ def MainMenu():
 # List All Channels
 @route(ROUTE + "/AllChannels")
 def ListChannels(title):
-    oc = ObjectContainer(title2 = title)
+    oc = ObjectContainer(view_group='Images', title2 = title)
 
     channels = get_channels()
     for channel in channels:
@@ -92,7 +97,7 @@ def ListChannels(title):
 #
 @route(ROUTE + "/AllRecent")
 def ListRecentVideos(title, page = 1):
-    oc = ObjectContainer(title2 = title)
+    oc = ObjectContainer(view_group="Details", title2 = title)
 
     recent_videos = get_all_recent(page)
     
@@ -134,7 +139,7 @@ def ListRecentVideos(title, page = 1):
 #
 @route(ROUTE + "/Channel")
 def Channel_Menu(title, channel_url, thumbnail):
-    oc = ObjectContainer(title2 = title)
+    oc = ObjectContainer(view_group="Details", title2 = title)
 
     # Display Featured directory
     oc.add(DirectoryObject(
@@ -166,7 +171,7 @@ def Channel_Menu(title, channel_url, thumbnail):
 # List 'Recent Videos' for the channel
 @route(ROUTE + "/Recent")
 def Channel_ListRecent(title, channel_url, page=1):
-    oc = ObjectContainer(title2 = title)
+    oc = ObjectContainer(view_group="Images", title2 = title)
 
     recent_videos = get_recent(channel_url, page)
     
@@ -204,7 +209,7 @@ def Channel_ListRecent(title, channel_url, page=1):
 # List 'Featured Videos' for the channel
 @route(ROUTE + "/Featured")
 def Channel_ListFeatured(title, channel_url):
-    oc = ObjectContainer(title2 = title)
+    oc = ObjectContainer(view_group="Images", title2 = title)
 
     featured_videos = get_featured(channel_url)
 
