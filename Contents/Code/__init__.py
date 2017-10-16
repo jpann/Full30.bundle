@@ -277,15 +277,12 @@ def get_featured(url):
             video_thumbnail = "http:" + video.find('img', class_="recentlyAdded-pictures").get('src')
 
             res_url = VIDEO_RESOLUTIONS_URL.format(slug, video_hash)
-            
-            video_metadata = get_video_metadata(video_url)
 
             featured.append(
                 { 
                     "title" : video_name, 
                     "url" : video_url, 
-                    "thumbnail" : video_thumbnail ,
-                    "description" : video_metadata['desc'],
+                    "thumbnail" : video_thumbnail,
                     "mp4_url" : res_url
                 })
 
@@ -385,19 +382,3 @@ def get_all_recent(page):
             })
 
     return recent
-
-#
-# Get metadata for specified video url
-# TODO: May end up removing this
-def get_video_metadata(url):
-    metadata = {}
-    
-    data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
-
-    soup = BeautifulSoup(data, "html.parser")
-    
-    metadata['desc'] = soup.find('meta', property='og:description').get('content')
-    #metadata['uploaded'] = date
-    metadata['views'] = soup.find('span', id="player-view-count").text
-    
-    return metadata
