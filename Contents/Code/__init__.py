@@ -364,7 +364,11 @@ def get_all_recent(page):
         v_title = video['title']
         v_views = video['view_count']
         v_title = video['title']
-        v_url = VIDEO_URL.format(v_hash)
+        v_url = VIDEO_URL.format(v_hash)        
+        
+        # Remove markup from desc
+        soup = BeautifulSoup(v_desc, "html.parser")
+        v_desc = soup.get_text()
 
         v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
         
