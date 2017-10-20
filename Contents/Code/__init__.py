@@ -38,6 +38,9 @@ def Start():
 
     HTTP.CacheTime             = CACHE_1HOUR
     HTTP.Headers['User-agent'] = HTTP_USER_AGENT
+
+    # For debugging
+    HTTP.ClearCache()
     
 @handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
@@ -187,6 +190,7 @@ def Channel_ListRecent(title, channel_url, page=1):
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
+            summary = '',
             rating_key = mp4_url,
             thumb = Callback(Thumb, url=thumb)
         ))	
@@ -226,6 +230,7 @@ def Channel_ListFeatured(title, channel_url):
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
+            summary = '',
             rating_key = mp4_url,
             thumb = Callback(Thumb, url=thumb)
         ))
