@@ -41,7 +41,7 @@ def Start():
     
 @handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
-    oc = ObjectContainer()
+    oc = ObjectContainer(no_cache=True)
 
     #
     # Add 'All Recent Videos' menu item
@@ -116,7 +116,8 @@ def ListRecentVideos(title, page = 1):
             url = mp4_url,
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
-            thumb = Callback(Thumb, url=thumb)
+            thumb = Callback(Thumb, url=thumb),
+            rating_key = mp4_url,
         ))	
 
     next_page = int(page) + 1
@@ -186,6 +187,7 @@ def Channel_ListRecent(title, channel_url, page=1):
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
+            rating_key = mp4_url,
             thumb = Callback(Thumb, url=thumb)
         ))	
 
@@ -224,6 +226,7 @@ def Channel_ListFeatured(title, channel_url):
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
+            rating_key = mp4_url,
             thumb = Callback(Thumb, url=thumb)
         ))
 
