@@ -190,7 +190,7 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
 
 #
 # List 'Most Viewed Videos' for the channel
-@route(ROUTE + '/Recent')
+@route(ROUTE + '/MostViewed')
 def Channel_MostViewed(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
