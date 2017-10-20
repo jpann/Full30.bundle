@@ -21,6 +21,7 @@ THUMBNAIL_URL           = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}
 VIDEO_RESOLUTIONS_URL   = 'https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}'
 ALL_RECENT_API_URL      = BASE_URL + '/api/v1.0/recents/all?page={0}'
 CHANNEL_RECENT_API_URL  = BASE_URL + '/api/v1.0/recents/{0}?page={1}'
+CHANNEL_MOSTVIEWED_API_URL  = BASE_URL + '/api/v1.0/mostviewed/{0}?page={1}'
 
 def Start():
     Plugin.AddViewGroup('List', viewMode='List', mediaType='items')
@@ -161,6 +162,18 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
         thumb = Callback(Thumb, url=thumbnail)
     ))
 
+    # Display Most Viewed directory
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            Channel_MostViewed,
+            title = 'Most Viewed Videos',
+            channel_slug = slug
+        ),
+        title = 'Most Viewed',
+        thumb = Callback(Thumb, url=thumbnail)
+    ))
+
     # Display Recent directory
     oc.add(DirectoryObject(
         key =
@@ -172,6 +185,51 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
         title = 'Recent Videos',
         thumb = Callback(Thumb, url=thumbnail)
     ))
+
+    return oc
+
+#
+# List 'Most Viewed Videos' for the channel
+@route(ROUTE + '/Recent')
+def Channel_MostViewed(title, channel_slug, page=1):
+    oc = ObjectContainer(title2 = title, view_group='InfoList')
+
+    mostviewed_videos = get_mostviewed(channel_slug, page)
+    
+    limit = mostviewed_videos['pages']
+
+    for video in mostviewed_videos['videos']:
+        url = video['url']
+        channel = video['channel']
+        title = video['title']
+        desc = video['desc']
+        thumb = video['thumbnail']
+        mp4_url = video['mp4_url']
+        views = video['views']
+        pub_date = video['pub_date']
+        
+        oc.add(VideoClipObject(
+            url = mp4_url,
+            title = '{0} - {1}'.format(channel, title),
+            summary = '{0} views - {1}'.format(views, desc),
+            thumb = Callback(Thumb, url=thumb),
+            rating_key = mp4_url,
+            originally_available_at = pub_date
+        ))		
+
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                Channel_MostViewed,
+                title = 'Most Viewed Videos - Page {0}'.format(next_page),
+                channel_slug = channel_slug,
+                page = next_page
+            ),
+            title = 'Page {0}'.format(next_page),
+            summary = 'View more videos'
+       ))
 
     return oc
 
@@ -309,6 +367,64 @@ def get_featured(url):
                 })
 
     return featured
+
+#
+# Get a list of most viewed videos for specified channel
+def get_mostviewed(slug, page):
+    mostviewed = { 'pages' : '', 'videos' : [] }
+
+    if not page:
+        page = 1
+    
+    api_url = CHANNEL_MOSTVIEWED_API_URL.format(slug, page)
+    
+    html = HTTP.Request(api_url, cacheTime = 1200).content
+    
+    if not html:
+        return None
+        
+    data = json.loads(html)
+    
+    if not data:
+        return None
+        
+    mostviewed['pages'] = data['pages']
+
+    for key,value in data['videos'].iteritems():
+        video = data['videos'][key]
+
+        v_channel_slug = video['channel_slug']
+        v_channel_title = video['channel_title']
+        v_desc = video['description']
+        v_hash = video['hashed_identifier']
+        v_id = video['id']
+        v_thumbnail = THUMBNAIL_URL.format(v_channel_slug, v_hash, video['thumbnail_filename'])
+        v_title = video['title']
+        v_views = video['view_count']
+        v_title = video['title']
+        v_url = VIDEO_URL.format(v_hash)      
+        v_pub_date =  Datetime.ParseDate(video['publication_date'])  
+
+        # Remove markup from desc
+        soup = BeautifulSoup(v_desc, 'html.parser')
+        v_desc = soup.get_text()
+
+        v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
+        
+        mostviewed['videos'].append(
+            { 
+                'title' : v_title, 
+                'url' : v_url, 
+                'thumbnail' : v_thumbnail, 
+                'desc' : v_desc,
+                'channel' : v_channel_title, 
+                'channel_slug' : v_channel_slug,
+                'mp4_url' : v_res_url,
+                'views' : v_views,
+                'pub_date' : v_pub_date
+            })
+
+    return mostviewed
 
 def get_recent(slug, page):
     recent = { 'pages' : '', 'videos' : [] }
