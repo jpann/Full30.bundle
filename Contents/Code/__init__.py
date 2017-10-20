@@ -41,7 +41,7 @@ def Start():
     HTTP.Headers['User-agent'] = HTTP_USER_AGENT
 
     # For debugging
-    HTTP.ClearCache()
+    #HTTP.ClearCache()
     
 @handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
