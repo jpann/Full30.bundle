@@ -6,9 +6,10 @@ This is an unoffical Plex channel that lets you watch Full30.com videos on any d
 
 ## Features
 - Stream videos from all channels on Full30.com.
-- Stream all recent videos.
+- Stream site's all recent videos.
 - Stream videos by channel's featured videos list.
 - Stream videos by channel's recent videos list.
+- Stream videos by channel's most viewed videos list.
 - Stream HD video when available.
 
 ## Installation
