@@ -17,10 +17,10 @@ ROUTE                   = '/video/fullthirty'
 BASE_URL                = 'https://www.full30.com'
 CHANNELS_URL            = BASE_URL + '/channels/all'
 VIDEO_URL               = BASE_URL + '/video/{0}'
-RECENT_API_URL          = BASE_URL + '/api/v1.0/channel/{0}/recent-videos?page={1}'
 THUMBNAIL_URL           = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg'
 VIDEO_RESOLUTIONS_URL   = 'https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}'
 ALL_RECENT_API_URL      = BASE_URL + '/api/v1.0/recents/all?page={0}'
+CHANNEL_RECENT_API_URL  = BASE_URL + '/api/v1.0/recents/{0}?page={1}'
 
 def Start():
     Plugin.AddViewGroup('List', viewMode='List', mediaType='items')
@@ -81,12 +81,14 @@ def ListChannels(title):
     channels = get_channels()
     for channel in channels:
         title = channel['name']
+
         oc.add(DirectoryObject(
             key =
 			Callback(
 			    Channel_Menu,
 			    title = title,
 			    channel_url = channel['url'],
+                slug = channel['slug'],
                 thumbnail = channel['thumbnail']
 		    ),
 		    title = title,
@@ -114,6 +116,7 @@ def ListRecentVideos(title, page = 1):
         thumb = video['thumbnail']
         mp4_url = video['mp4_url']
         views = video['views']
+        pub_date = video['pub_date']
         
         oc.add(VideoClipObject(
             url = mp4_url,
@@ -121,6 +124,7 @@ def ListRecentVideos(title, page = 1):
             summary = '{0} views - {1}'.format(views, desc),
             thumb = Callback(Thumb, url=thumb),
             rating_key = mp4_url,
+            originally_available_at = pub_date
         ))	
 
     next_page = int(page) + 1
@@ -142,7 +146,7 @@ def ListRecentVideos(title, page = 1):
 # List 'Featured Videos' and 'Recent Videos' folders for the channel
 #
 @route(ROUTE + '/Channel')
-def Channel_Menu(title, channel_url, thumbnail):
+def Channel_Menu(title, channel_url, slug, thumbnail):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
     # Display Featured directory
@@ -163,7 +167,7 @@ def Channel_Menu(title, channel_url, thumbnail):
         Callback(
             Channel_ListRecent,
             title = 'Recent Videos',
-            channel_url = channel_url
+            channel_slug = slug
         ),
         title = 'Recent Videos',
         thumb = Callback(Thumb, url=thumbnail)
@@ -174,26 +178,31 @@ def Channel_Menu(title, channel_url, thumbnail):
 #
 # List 'Recent Videos' for the channel
 @route(ROUTE + '/Recent')
-def Channel_ListRecent(title, channel_url, page=1):
+def Channel_ListRecent(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    recent_videos = get_recent(channel_url, page)
+    recent_videos = get_recent(channel_slug, page)
     
     limit = recent_videos['pages']
 
     for video in recent_videos['videos']:
         url = video['url']
+        channel = video['channel']
         title = video['title']
+        desc = video['desc']
         thumb = video['thumbnail']
         mp4_url = video['mp4_url']
+        views = video['views']
+        pub_date = video['pub_date']
         
         oc.add(VideoClipObject(
             url = mp4_url,
-            title = title,
-            summary = '',
+            title = '{0} - {1}'.format(channel, title),
+            summary = '{0} views - {1}'.format(views, desc),
+            thumb = Callback(Thumb, url=thumb),
             rating_key = mp4_url,
-            thumb = Callback(Thumb, url=thumb)
-        ))	
+            originally_available_at = pub_date
+        ))		
 
     next_page = int(page) + 1
     if next_page <= limit:
@@ -202,7 +211,7 @@ def Channel_ListRecent(title, channel_url, page=1):
             Callback(
                 Channel_ListRecent,
                 title = 'Recent Videos - Page {0}'.format(next_page),
-                channel_url = channel_url,
+                channel_slug = channel_slug,
                 page = next_page
             ),
             title = 'Page {0}'.format(next_page),
@@ -262,8 +271,9 @@ def get_channels():
         
         channel_name = video.find('span', class_='channel-name text-uppercase').string.encode('ascii', 'ignore').decode('ascii')
         channel_thumbnail = BASE_URL + video.find('img', class_="channel-image").get('src')
+        channel_slug =  channel_url.rsplit('/', 1)[-1]
 
-        channels.append({ 'name' : channel_name, 'url' : channel_url, 'thumbnail' : channel_thumbnail })
+        channels.append({ 'name' : channel_name, 'url' : channel_url, 'thumbnail' : channel_thumbnail, 'slug' : channel_slug })
 
     return channels
 
@@ -300,16 +310,13 @@ def get_featured(url):
 
     return featured
 
-#
-# Get recent videos by page for specified channel
-def get_recent(url, page):
-    recent = { 'title' : '', 'slug' : '', 'pages' : '', 'videos' : [] }
-    
+def get_recent(slug, page):
+    recent = { 'pages' : '', 'videos' : [] }
+
     if not page:
         page = 1
     
-    channel_name = url.rsplit('/', 1)[-1]
-    api_url = RECENT_API_URL.format(channel_name, page)
+    api_url = CHANNEL_RECENT_API_URL.format(slug, page)
     
     html = HTTP.Request(api_url, cacheTime = 1200).content
     
@@ -321,22 +328,42 @@ def get_recent(url, page):
     if not data:
         return None
         
-    recent['title'] = data['channel']['title']
     recent['pages'] = data['pages']
-    recent['slug'] = data['channel']['slug']
-    
-    for video in data['videos']:
+
+    for key,value in data['videos'].iteritems():
+        video = data['videos'][key]
+
+        v_channel_slug = video['channel_slug']
+        v_channel_title = video['channel_title']
+        v_desc = video['description']
         v_hash = video['hashed_identifier']
         v_id = video['id']
-        v_thumbnail = THUMBNAIL_URL.format(recent['slug'], v_hash, video['thumbnail_filename'])
+        v_thumbnail = video['thumbnail_path']
         v_title = video['title']
-        v_url = VIDEO_URL.format(v_hash)
-        v_channel = recent['title']
-
-        v_res_url = VIDEO_RESOLUTIONS_URL.format(recent['slug'], v_hash)
+        v_views = video['view_count']
+        v_title = video['title']
+        v_url = VIDEO_URL.format(v_hash)      
+        v_pub_date =  Datetime.ParseDate(video['publication_date'])  
         
-        recent['videos'].append({ "title" : v_title, "url" : v_url, "thumbnail" : v_thumbnail, "channel": v_channel, "mp4_url" : v_res_url })
-    
+        # Remove markup from desc
+        soup = BeautifulSoup(v_desc, 'html.parser')
+        v_desc = soup.get_text()
+
+        v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
+        
+        recent['videos'].append(
+            { 
+                'title' : v_title, 
+                'url' : v_url, 
+                'thumbnail' : v_thumbnail, 
+                'desc' : v_desc,
+                'channel' : v_channel_title, 
+                'channel_slug' : v_channel_slug,
+                'mp4_url' : v_res_url,
+                'views' : v_views,
+                'pub_date' : v_pub_date
+            })
+
     return recent
 
 #
@@ -374,7 +401,8 @@ def get_all_recent(page):
         v_views = video['view_count']
         v_title = video['title']
         v_url = VIDEO_URL.format(v_hash)        
-        
+        v_pub_date =  Datetime.ParseDate(video['publication_date']) 
+
         # Remove markup from desc
         soup = BeautifulSoup(v_desc, 'html.parser')
         v_desc = soup.get_text()
@@ -390,7 +418,8 @@ def get_all_recent(page):
                 'channel' : v_channel_title, 
                 'channel_slug' : v_channel_slug,
                 'mp4_url' : v_res_url,
-                'views' : v_views
+                'views' : v_views,
+                'pub_date' : v_pub_date
             })
 
     return recent
