@@ -421,8 +421,12 @@ def get_mostviewed(slug, page):
                 'channel_slug' : v_channel_slug,
                 'mp4_url' : v_res_url,
                 'views' : v_views,
-                'pub_date' : v_pub_date
+                'pub_date' : v_pub_date,
+                'id' : v_id
             })
+
+    # Sort videos by ID which seems like is the proper order
+    mostviewed['videos'] = sorted(mostviewed['videos'], key=lambda k: k['id'], reverse=True) 
 
     return mostviewed
 
@@ -477,8 +481,12 @@ def get_recent(slug, page):
                 'channel_slug' : v_channel_slug,
                 'mp4_url' : v_res_url,
                 'views' : v_views,
-                'pub_date' : v_pub_date
+                'pub_date' : v_pub_date,
+                'id' : v_id
             })
+
+    # Sort videos by ID which seems like is the proper order
+    recent['videos'] = sorted(recent['videos'], key=lambda k: k['id'], reverse=True)
 
     return recent
 
@@ -535,7 +543,11 @@ def get_all_recent(page):
                 'channel_slug' : v_channel_slug,
                 'mp4_url' : v_res_url,
                 'views' : v_views,
-                'pub_date' : v_pub_date
+                'pub_date' : v_pub_date,
+                'id' : v_id
             })
+
+    # Sort videos by ID which seems like is the proper order
+    recent['videos'] = sorted(recent['videos'], key=lambda k: k['id'], reverse=True)
 
     return recent
