@@ -4,6 +4,7 @@ import requests
 import ssl
 import re
 import json
+from datetime import datetime
 
 VERSION         = 'V1.0.5'
 NAME            = 'Unofficial Full30.com Plex Channel'
@@ -124,8 +125,9 @@ def ListRecentVideos(title, page = 1):
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
             thumb = Callback(Thumb, url=thumb),
-            rating_key = mp4_url,
-            originally_available_at = pub_date
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
+            rating_key = mp4_url
         ))	
 
     next_page = int(page) + 1
@@ -213,8 +215,9 @@ def Channel_MostViewed(title, channel_slug, page=1):
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
             thumb = Callback(Thumb, url=thumb),
-            rating_key = mp4_url,
-            originally_available_at = pub_date
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
+            rating_key = mp4_url
         ))		
 
     next_page = int(page) + 1
@@ -258,8 +261,9 @@ def Channel_ListRecent(title, channel_slug, page=1):
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
             thumb = Callback(Thumb, url=thumb),
-            rating_key = mp4_url,
-            originally_available_at = pub_date
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
+            rating_key = mp4_url
         ))		
 
     next_page = int(page) + 1
@@ -403,7 +407,7 @@ def get_mostviewed(slug, page):
         v_views = video['view_count']
         v_title = video['title']
         v_url = VIDEO_URL.format(v_hash)      
-        v_pub_date =  Datetime.ParseDate(video['publication_date'])  
+        v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')  
 
         # Remove markup from desc
         soup = BeautifulSoup(v_desc, 'html.parser')
@@ -463,7 +467,7 @@ def get_recent(slug, page):
         v_views = video['view_count']
         v_title = video['title']
         v_url = VIDEO_URL.format(v_hash)      
-        v_pub_date =  Datetime.ParseDate(video['publication_date'])  
+        v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')  
         
         # Remove markup from desc
         soup = BeautifulSoup(v_desc, 'html.parser')
@@ -525,7 +529,7 @@ def get_all_recent(page):
         v_views = video['view_count']
         v_title = video['title']
         v_url = VIDEO_URL.format(v_hash)        
-        v_pub_date =  Datetime.ParseDate(video['publication_date']) 
+        v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')
 
         # Remove markup from desc
         soup = BeautifulSoup(v_desc, 'html.parser')
