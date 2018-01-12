@@ -6,7 +6,10 @@ import re
 import json
 from datetime import datetime
 
-VERSION         = 'V1.0.5'
+GetPage = SharedCodeService.scrape.GetPage
+GetThumb = SharedCodeService.scrape.GetThumb
+
+VERSION         = 'V1.0.6'
 NAME            = 'Unofficial Full30.com Plex Channel'
 TITLE           = 'Unofficial Full30.com Plex Channel'
 ART             = 'art-default.jpg'
@@ -83,18 +86,23 @@ def ListChannels(title):
     channels = get_channels()
     for channel in channels:
         title = channel['name']
+        thumbnail = channel['thumbnail']
+        url = channel['url']
+        slug = channel['slug']
+
+        Log.Info('ListChannels - {0}; Slug={1}; Url={2}; Thumb={3}'.format(title, slug, url, thumbnail))
 
         oc.add(DirectoryObject(
             key =
 			Callback(
 			    Channel_Menu,
 			    title = title,
-			    channel_url = channel['url'],
-                slug = channel['slug'],
-                thumbnail = channel['thumbnail']
+			    channel_url = url,
+                slug = slug,
+                thumbnail = thumbnail
 		    ),
 		    title = title,
-            thumb = Callback(Thumb, url = channel['thumbnail'])
+            thumb = Callback(GetThumb, url = thumbnail)
 		))
 
     return oc
@@ -119,12 +127,14 @@ def ListRecentVideos(title, page = 1):
         mp4_url = video['mp4_url']
         views = video['views']
         pub_date = video['pub_date']
-        
+
+        Log.Info('ListRecentVideos - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
+
         oc.add(VideoClipObject(
             url = mp4_url,
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
-            thumb = Callback(Thumb, url=thumb),
+            thumb = Callback(GetThumb, url=thumb),
             originally_available_at = pub_date.date(),
 	        year = pub_date.year,
             rating_key = mp4_url
@@ -161,7 +171,7 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
             channel_url = channel_url
         ),
         title = 'Featured Videos',
-        thumb = Callback(Thumb, url=thumbnail)
+        thumb = Callback(GetThumb, url=thumbnail)
     ))
 
     # Display Most Viewed directory
@@ -173,7 +183,7 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
             channel_slug = slug
         ),
         title = 'Most Viewed',
-        thumb = Callback(Thumb, url=thumbnail)
+        thumb = Callback(GetThumb, url=thumbnail)
     ))
 
     # Display Recent directory
@@ -185,7 +195,7 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
             channel_slug = slug
         ),
         title = 'Recent Videos',
-        thumb = Callback(Thumb, url=thumbnail)
+        thumb = Callback(GetThumb, url=thumbnail)
     ))
 
     return oc
@@ -209,12 +219,14 @@ def Channel_MostViewed(title, channel_slug, page=1):
         mp4_url = video['mp4_url']
         views = video['views']
         pub_date = video['pub_date']
+
+        Log.Info('Channel_MostViewed - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
         
         oc.add(VideoClipObject(
             url = mp4_url,
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
-            thumb = Callback(Thumb, url=thumb),
+            thumb = Callback(GetThumb, url=thumb),
             originally_available_at = pub_date.date(),
 	        year = pub_date.year,
             rating_key = mp4_url
@@ -255,12 +267,14 @@ def Channel_ListRecent(title, channel_slug, page=1):
         mp4_url = video['mp4_url']
         views = video['views']
         pub_date = video['pub_date']
+
+        Log.Info('Channel_ListRecent - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
         
         oc.add(VideoClipObject(
             url = mp4_url,
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
-            thumb = Callback(Thumb, url=thumb),
+            thumb = Callback(GetThumb, url=thumb),
             originally_available_at = pub_date.date(),
 	        year = pub_date.year,
             rating_key = mp4_url
@@ -298,31 +312,24 @@ def Channel_ListFeatured(title, channel_url):
         thumb = video['thumbnail']
         mp4_url = video['mp4_url']
 
+        Log.Info('Channel_ListFeatured - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel_url, url, thumb))
+
         oc.add(VideoClipObject(
             url = mp4_url,
             title = title,
             summary = '',
             rating_key = mp4_url,
-            thumb = Callback(Thumb, url=thumb)
+            thumb = Callback(GetThumb, url=thumb)
         ))
 
     return oc
-
-#
-# Get thumbnail and cache it
-def Thumb(url):
-  try:
-    data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
-    return DataObject(data, 'image/jpeg')
-  except:
-    return Redirect(R(ICON))
 
 #
 # Get list of all channels from full30.com
 def get_channels():
     channels = []
 
-    data = HTTP.Request(CHANNELS_URL, cacheTime = CACHE_1HOUR).content
+    data = GetPage(CHANNELS_URL)
 
     soup = BeautifulSoup(data, 'html.parser')
 
@@ -344,7 +351,8 @@ def get_channels():
 def get_featured(url):
     featured = []
 
-    data = HTTP.Request(url, cacheTime = 1200).content
+    #data = HTTP.Request(url, cacheTime = 1200).content
+    data = GetPage(url)
 
     soup = BeautifulSoup(data, 'html.parser')
     
@@ -382,7 +390,8 @@ def get_mostviewed(slug, page):
     
     api_url = CHANNEL_MOSTVIEWED_API_URL.format(slug, page)
     
-    html = HTTP.Request(api_url, cacheTime = 1200).content
+    #html = HTTP.Request(api_url, cacheTime = 1200).content
+    html = GetPage(api_url)
     
     if not html:
         return None
@@ -434,6 +443,8 @@ def get_mostviewed(slug, page):
 
     return mostviewed
 
+#
+# Get a list of most recent videos for specified channel
 def get_recent(slug, page):
     recent = { 'pages' : '', 'videos' : [] }
 
@@ -442,7 +453,8 @@ def get_recent(slug, page):
     
     api_url = CHANNEL_RECENT_API_URL.format(slug, page)
     
-    html = HTTP.Request(api_url, cacheTime = 1200).content
+    #html = HTTP.Request(api_url, cacheTime = 1200).content
+    html = GetPage(api_url)
     
     if not html:
         return None
@@ -504,7 +516,8 @@ def get_all_recent(page):
     
     api_url = ALL_RECENT_API_URL.format(page)
     
-    html = HTTP.Request(api_url, cacheTime = 1200).content
+    #html = HTTP.Request(api_url, cacheTime = 1200).content
+    html = GetPage(api_url)
     
     if not html:
         return None

@@ -1,10 +1,13 @@
 import httplib
 import json
+from scrape import GetPage as GetPage
+from scrape import GetThumb as GetThumb
 
 def MetadataObjectForURL(url):
     video_hash = url.rsplit('/', 1)[-1]
 
-    content = HTTP.Request("https://www.full30.com/video/" + video_hash, cacheTime = CACHE_1MONTH).content
+    content = GetPage("https://www.full30.com/video/" + video_hash)
+
     page = HTML.ElementFromString(content)
 
     #Log.Info('HTML-> ' + content)
@@ -16,7 +19,7 @@ def MetadataObjectForURL(url):
     return VideoClipObject(
         title = title,
         summary = description,
-        thumb = Callback(Thumb, url=thumb)
+        thumb = Callback(GetThumb, url=thumb)
         )     
 
 def MediaObjectsForURL(url):
@@ -49,17 +52,10 @@ def PlayVideo(url):
 
     return IndirectResponse(VideoClipObject, key=video_url)
 
-def Thumb(url):
-  try:
-    data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
-    return DataObject(data, 'image/jpeg')
-  except:
-    return Redirect(R(ICON))
-
 def get_video_resolutions(url):
     resolutions = []
 
-    data = HTTP.Request(url, cacheTime = CACHE_1HOUR).content
+    data = GetPage(url)
 
     lines = data.splitlines()
 
