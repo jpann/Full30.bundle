@@ -14,7 +14,7 @@ This is an unoffical Plex channel that lets you watch Full30.com videos on any d
 
 ## Installation
 
-- This channel can be installed via [WebTools.bundle](https://github.com/dagalufh/WebTools.bundle) or manually follow the directions below.
+- This channel can be installed via [WebTools.bundle](https://github.com/dagalufh/WebTools.bundle) or manually using the directions below.
 - [Download](https://github.com/jpann/Full30.bundle/archive/master.zip) and install by following the Plex [instructions](https://support.plex.tv/hc/en-us/articles/201187656-How-do-I-manually-install-a-channel-) or the instructions below.
   - Unzip and rename the directory from **Full30.bundle-master** to **Full30.bundle**
   - Copy **Full30.bundle** into the Plex Media Server [Plug-ins](https://support.plex.tv/hc/en-us/articles/201106098-How-do-I-find-the-Plug-Ins-folder-) directory
