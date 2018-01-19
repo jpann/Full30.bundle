@@ -23,6 +23,9 @@ This is an unoffical Plex channel that lets you watch Full30.com videos on any d
 
 ## Screenshots
 
+### Demo
+![Demo](/Demo.gif?raw=true "Demo")
+
 ### Channel List
 ![Channel List](/channel_list_screenshot.png?raw=true "Channel List")
 
