@@ -8,11 +8,11 @@
     <dict>
       <key>URLPatterns</key>
       <array>
-        <string>https://videos.full30.com/bitmotive/public/full30/v1.0/videos/.+</string>
+        <string>https://www.full30.com/api/v2.0/videos.+</string>
       </array>
       <key>TestURLs</key>
       <array>
-        <string>https://www.full30.com/video/f20140c7f9b40a711be0b3025aef9ae9/</string>
+        <string>https://www.full30.com/api/v2.0/videos?filter_id=14660</string>
       </array>
     </dict>
   </dict>
