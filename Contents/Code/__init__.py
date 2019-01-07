@@ -9,7 +9,7 @@ from datetime import datetime
 GetPage = SharedCodeService.scrape.GetPage
 GetThumb = SharedCodeService.scrape.GetThumb
 
-VERSION         = 'V1.0.6'
+VERSION         = 'V1.0.7'
 NAME            = 'Unofficial Full30.com Plex Channel'
 TITLE           = 'Unofficial Full30.com Plex Channel'
 ART             = 'art-default.jpg'
@@ -19,13 +19,15 @@ HTTP_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/53
 
 ROUTE                   = '/video/fullthirty'
 BASE_URL                = 'https://www.full30.com'
-CHANNELS_URL            = BASE_URL + '/channels/all'
-VIDEO_URL               = BASE_URL + '/video/{0}'
+CHANNELS_URL            = BASE_URL + '/api/v2.0/channels?page={0}&per_page=25'
+VIDEO_URL               = BASE_URL + '/watch/{0}'
 THUMBNAIL_URL           = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg'
-VIDEO_RESOLUTIONS_URL   = 'https://videos.full30.com/bitmotive/public/full30/v1.0/videos/{0}/{1}'
-ALL_RECENT_API_URL      = BASE_URL + '/api/v1.0/recents/all?page={0}'
-CHANNEL_RECENT_API_URL  = BASE_URL + '/api/v1.0/recents/{0}?page={1}'
+VIDEO_API_URL           = BASE_URL + '/api/v2.0/videos?filter_id={0}'
+VIDEO_RESOLUTIONS_URL   = BASE_URL + '/api/v2.0/videos?filter_id={0}'
+ALL_RECENT_API_URL      = BASE_URL + '/api/v2.0/videos?order_by=new&page={0}'
+CHANNEL_RECENT_API_URL  = BASE_URL + '/api/v1.0/channel/{0}/recent-videos?page={1}'
 CHANNEL_MOSTVIEWED_API_URL  = BASE_URL + '/api/v1.0/mostviewed/{0}?page={1}'
+ALL_TRENDING_API_URL    = BASE_URL + '/api/v2.0/videos?order_by=trending&page={0}'
 
 def Start():
     Plugin.AddViewGroup('List', viewMode='List', mediaType='items')
@@ -52,15 +54,28 @@ def MainMenu():
     oc = ObjectContainer(no_cache=True)
 
     #
-    # Add 'All Recent Videos' menu item
+    # Add 'Recent Videos' menu item
     oc.add(DirectoryObject(
         key =
         Callback(
             ListRecentVideos,
-            title = 'All Recent Videos',
+            title = 'Recent Videos',
             page = 1
         ),
-        title = 'All Recent Videos',
+        title = 'Recent Videos',
+        thumb = R(ICON)
+    ))
+
+    #
+    # Add 'Trending Videos' menu item
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            ListTrendingVideos,
+            title = 'Trending Videos',
+            page = 1
+        ),
+        title = 'Trending Videos',
         thumb = R(ICON)
     ))
 
@@ -80,11 +95,13 @@ def MainMenu():
 #
 # List All Channels
 @route(ROUTE + '/AllChannels')
-def ListChannels(title):
+def ListChannels(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    channels = get_channels()
-    for channel in channels:
+    channels = get_channels(page)
+    limit = channels['pages']
+
+    for channel in channels['channels']:
         title = channel['name']
         thumbnail = channel['thumbnail']
         url = channel['url']
@@ -104,6 +121,19 @@ def ListChannels(title):
 		    title = title,
             thumb = Callback(GetThumb, url = thumbnail)
 		))
+    
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                ListChannels,
+                title = 'All Channels - Page {0}'.format(next_page),
+                page = next_page
+            ),
+            title = 'Page {0}'.format(next_page),
+            summary = 'View more channels'
+       ))
 
     return oc
 
@@ -124,20 +154,20 @@ def ListRecentVideos(title, page = 1):
         title = video['title']
         desc = video['desc']
         thumb = video['thumbnail']
-        mp4_url = video['mp4_url']
+        details_url = video['details_url']
         views = video['views']
         pub_date = video['pub_date']
 
         Log.Info('ListRecentVideos - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
 
         oc.add(VideoClipObject(
-            url = mp4_url,
+            url = details_url,
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
             thumb = Callback(GetThumb, url=thumb),
             originally_available_at = pub_date.date(),
 	        year = pub_date.year,
-            rating_key = mp4_url
+            rating_key = details_url
         ))	
 
     next_page = int(page) + 1
@@ -146,11 +176,59 @@ def ListRecentVideos(title, page = 1):
             key =
             Callback(
                 ListRecentVideos,
-                title = 'All Recent Videos - Page {0}'.format(next_page),
+                title = 'Recent Videos - Page {0}'.format(next_page),
                 page = next_page
             ),
             title = 'Page {0}'.format(next_page),
             summary = 'View more recent videos'
+       ))
+
+    return oc
+
+#
+# List All Trending videos
+#
+@route(ROUTE + '/AllTrending')
+def ListTrendingVideos(title, page = 1):
+    oc = ObjectContainer(title2 = title, view_group='InfoList')
+
+    trending_videos = get_all_trending(page)
+    
+    limit = trending_videos['pages']
+
+    for video in trending_videos['videos']:
+        url = video['url']
+        channel = video['channel']
+        title = video['title']
+        desc = video['desc']
+        thumb = video['thumbnail']
+        details_url = video['details_url']
+        views = video['views']
+        pub_date = video['pub_date']
+
+        Log.Info('ListTrendingVideos - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
+
+        oc.add(VideoClipObject(
+            url = details_url,
+            title = '{0} - {1}'.format(channel, title),
+            summary = '{0} views - {1}'.format(views, desc),
+            thumb = Callback(GetThumb, url=thumb),
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
+            rating_key = details_url
+        ))	
+
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                ListTrendingVideos,
+                title = 'Trending Videos - Page {0}'.format(next_page),
+                page = next_page
+            ),
+            title = 'Page {0}'.format(next_page),
+            summary = 'View more trending videos'
        ))
 
     return oc
@@ -161,18 +239,6 @@ def ListRecentVideos(title, page = 1):
 @route(ROUTE + '/Channel')
 def Channel_Menu(title, channel_url, slug, thumbnail):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
-
-    # Display Featured directory
-    oc.add(DirectoryObject(
-        key = 
-        Callback(
-            Channel_ListFeatured,
-            title = 'Featured Videos',
-            channel_url = channel_url
-        ),
-        title = 'Featured Videos',
-        thumb = Callback(GetThumb, url=thumbnail)
-    ))
 
     # Display Most Viewed directory
     oc.add(DirectoryObject(
@@ -216,20 +282,20 @@ def Channel_MostViewed(title, channel_slug, page=1):
         title = video['title']
         desc = video['desc']
         thumb = video['thumbnail']
-        mp4_url = video['mp4_url']
+        details_url = video['details_url']
         views = video['views']
         pub_date = video['pub_date']
 
         Log.Info('Channel_MostViewed - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
         
         oc.add(VideoClipObject(
-            url = mp4_url,
+            url = details_url,
             title = '{0} - {1}'.format(channel, title),
             summary = '{0} views - {1}'.format(views, desc),
             thumb = Callback(GetThumb, url=thumb),
             originally_available_at = pub_date.date(),
 	        year = pub_date.year,
-            rating_key = mp4_url
+            rating_key = details_url
         ))		
 
     next_page = int(page) + 1
@@ -264,20 +330,16 @@ def Channel_ListRecent(title, channel_slug, page=1):
         title = video['title']
         desc = video['desc']
         thumb = video['thumbnail']
-        mp4_url = video['mp4_url']
-        views = video['views']
-        pub_date = video['pub_date']
+        details_url = video['details_url']
 
         Log.Info('Channel_ListRecent - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
         
         oc.add(VideoClipObject(
-            url = mp4_url,
-            title = '{0} - {1}'.format(channel, title),
-            summary = '{0} views - {1}'.format(views, desc),
+            url = details_url,
+            title = title,
+            summary  = desc,
             thumb = Callback(GetThumb, url=thumb),
-            originally_available_at = pub_date.date(),
-	        year = pub_date.year,
-            rating_key = mp4_url
+            rating_key = details_url
         ))		
 
     next_page = int(page) + 1
@@ -297,88 +359,46 @@ def Channel_ListRecent(title, channel_slug, page=1):
     return oc
 
 #
-# List 'Featured Videos' for the channel
-@route(ROUTE + '/Featured')
-def Channel_ListFeatured(title, channel_url):
-    oc = ObjectContainer(title2 = title, view_group='InfoList')
-
-    featured_videos = get_featured(channel_url)
-
-    Log.Info(featured_videos)
-
-    for video in featured_videos:
-        url = video['url']
-        title = video['title']
-        thumb = video['thumbnail']
-        mp4_url = video['mp4_url']
-
-        Log.Info('Channel_ListFeatured - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel_url, url, thumb))
-
-        oc.add(VideoClipObject(
-            url = mp4_url,
-            title = title,
-            summary = '',
-            rating_key = mp4_url,
-            thumb = Callback(GetThumb, url=thumb)
-        ))
-
-    return oc
-
-#
 # Get list of all channels from full30.com
-def get_channels():
-    channels = []
+def get_channels(page = 1):
+    channels = { 'pages' : '', 'channels' : [] }
+    
+    channel_url = CHANNELS_URL.format(page)
 
-    data = GetPage(CHANNELS_URL)
-
-    soup = BeautifulSoup(data, 'html.parser')
-
-    videostreams = soup.find(class_='small-12 medium-4 large-4 columns show-for-large')
-
-    for video in videostreams.find_next('ul').find_all('li'):
-        channel_url = BASE_URL + video.find('a').get('href')
+    html = GetPage(channel_url)
+    
+    if not html:
+        return None
         
-        channel_name = video.find('span', class_='channel-name text-uppercase').string.encode('ascii', 'ignore').decode('ascii')
-        channel_thumbnail = BASE_URL + video.find('img', class_="channel-image").get('src')
-        channel_slug =  channel_url.rsplit('/', 1)[-1]
+    data = json.loads(html)
+    
+    if not data:
+        return None
 
-        channels.append({ 'name' : channel_name, 'url' : channel_url, 'thumbnail' : channel_thumbnail, 'slug' : channel_slug })
+    channels['pages'] = data['meta']['pages']
+
+    for video in data['data']:
+        channel_url = BASE_URL + "/channels/" + video['slug']
+
+        channel_name = video['title']
+        channel_thumbnail = '' if video['profile_filename'] is None else BASE_URL + "/cdn/c/b/" + video['profile_filename']
+        channel_desc = video['description']
+        channel_banner = '' if video['banner_filename'] is None else BASE_URL + "/cdn/c/b/" + video['banner_filename']
+        channel_subscribers = video['subscriber_count']
+        channel_slug = video['slug']
+
+        channels['channels'].append(
+            { 
+                "name" : channel_name, 
+                "url" : channel_url, 
+                "thumbnail" : channel_thumbnail,
+                "desc" : channel_desc,
+                "banner" : channel_banner,
+                "subscribers" : channel_subscribers,
+                "slug" : channel_slug
+            })
 
     return channels
-
-#
-# Get list of featured videos for specified channel url
-def get_featured(url):
-    featured = []
-
-    #data = HTTP.Request(url, cacheTime = 1200).content
-    data = GetPage(url)
-
-    soup = BeautifulSoup(data, 'html.parser')
-    
-    slug = soup.find(id='channel-slug').get('value')
-
-    featured_videos = soup.find(class_=re.compile('featured-row'))
-    
-    if featured_videos:
-        for video in featured_videos.find_all('div', class_='recent-item'):
-            video_url = BASE_URL + video.find('a').get('href').encode('ascii', 'ignore').decode('ascii')
-            video_hash = video_url.rsplit('/', 1)[-1]
-
-            video_name = video.find('p', class_=re.compile('recent-title')).string.encode('ascii', 'ignore').decode('ascii')
-            video_thumbnail = 'http:' + video.find('img', class_='recentlyAdded-pictures').get('src')
-
-            res_url = VIDEO_RESOLUTIONS_URL.format(slug, video_hash)
-
-            featured.append(
-                { 
-                    'title' : video_name, 
-                    'url' : video_url, 
-                    'thumbnail' : video_thumbnail,
-                    'mp4_url' : res_url
-                })
-
-    return featured
 
 #
 # Get a list of most viewed videos for specified channel
@@ -419,10 +439,9 @@ def get_mostviewed(slug, page):
         v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')  
 
         # Remove markup from desc
-        soup = BeautifulSoup(v_desc, 'html.parser')
-        v_desc = soup.get_text()
+        v_desc = remove_tags(v_desc)
 
-        v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
+        v_details_url = VIDEO_API_URL.format(v_id)
         
         mostviewed['videos'].append(
             { 
@@ -432,7 +451,7 @@ def get_mostviewed(slug, page):
                 'desc' : v_desc,
                 'channel' : v_channel_title, 
                 'channel_slug' : v_channel_slug,
-                'mp4_url' : v_res_url,
+                'details_url' : v_details_url,
                 'views' : v_views,
                 'pub_date' : v_pub_date,
                 'id' : v_id
@@ -453,6 +472,8 @@ def get_recent(slug, page):
     
     api_url = CHANNEL_RECENT_API_URL.format(slug, page)
     
+    Log.Info('get_recent-> ' + api_url)
+
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
     
@@ -465,28 +486,35 @@ def get_recent(slug, page):
         return None
         
     recent['pages'] = data['pages']
+    channel = data['channel']
 
-    for key,value in data['videos'].iteritems():
-        video = data['videos'][key]
+    for video in data['videos']:
+        v_channel_slug = channel['slug']
+        v_channel_title = channel['title']
 
-        v_channel_slug = video['channel_slug']
-        v_channel_title = video['channel_title']
-        v_desc = video['description']
         v_hash = video['hashed_identifier']
+        v_b64 = video['b64_identifier']
         v_id = video['id']
-        v_thumbnail = video['thumbnail_path']
+        v_thumbnail = THUMBNAIL_URL.format(channel['slug'], video['hashed_identifier'], video['thumbnail_filename'])
         v_title = video['title']
-        v_views = video['view_count']
-        v_title = video['title']
-        v_url = VIDEO_URL.format(v_hash)      
-        v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')  
-        
-        # Remove markup from desc
-        soup = BeautifulSoup(v_desc, 'html.parser')
-        v_desc = soup.get_text()
+        v_desc = v_title
 
-        v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
-        
+        v_url = VIDEO_URL.format(v_b64)      
+
+        v_details_url = VIDEO_API_URL.format(v_id)
+
+        # Get video details
+        v_details_html = GetPage(v_details_url)
+
+        if v_details_html:
+            v_details_data = json.loads(v_details_html)
+
+            if v_details_data:
+                v_desc = v_details_data['data'][0]['meta']['description']
+ 
+        # Remove markup from desc
+        v_desc = remove_tags(v_desc)
+
         recent['videos'].append(
             { 
                 'title' : v_title, 
@@ -495,9 +523,7 @@ def get_recent(slug, page):
                 'desc' : v_desc,
                 'channel' : v_channel_title, 
                 'channel_slug' : v_channel_slug,
-                'mp4_url' : v_res_url,
-                'views' : v_views,
-                'pub_date' : v_pub_date,
+                'details_url' : v_details_url,
                 'id' : v_id
             })
 
@@ -527,28 +553,35 @@ def get_all_recent(page):
     if not data:
         return None
         
-    recent['pages'] = data['pages']
+    recent['pages'] = data['meta']['pages']
 
-    for key,value in data['videos'].iteritems():
-        video = data['videos'][key]
+    for post in data['data']:
+        channel = post['channel']
+        meta = post['meta']
+        
+        v_channel_slug = channel['slug']
+        v_channel_title = channel['title']
+        v_desc = meta['description']
+        v_hash = meta['hashed_identifier']
+        v_b64 = meta['b64_id']
+        v_id = meta['id']
 
-        v_channel_slug = video['channel_slug']
-        v_channel_title = video['channel_title']
-        v_desc = video['description']
-        v_hash = video['hashed_identifier']
-        v_id = video['id']
-        v_thumbnail = video['thumbnail_path']
-        v_title = video['title']
-        v_views = video['view_count']
-        v_title = video['title']
+        #v_thumbnail = meta['thumbnail_filename']
+
+        v_thumbnail = post['images']['thumbnails'][0]
+        if v_thumbnail.startswith('http') == False:
+            v_thumbnail = BASE_URL + v_thumbnail
+
+        v_title = meta['title']
+        v_views = meta['view_count']
+
         v_url = VIDEO_URL.format(v_hash)        
-        v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')
+        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
 
         # Remove markup from desc
-        soup = BeautifulSoup(v_desc, 'html.parser')
-        v_desc = soup.get_text()
+        v_desc = remove_tags(v_desc)
 
-        v_res_url = VIDEO_RESOLUTIONS_URL.format(v_channel_slug, v_hash)
+        v_details_url = VIDEO_API_URL.format(v_id)
         
         recent['videos'].append(
             { 
@@ -558,7 +591,7 @@ def get_all_recent(page):
                 'desc' : v_desc,
                 'channel' : v_channel_title, 
                 'channel_slug' : v_channel_slug,
-                'mp4_url' : v_res_url,
+                'details_url' : v_details_url,
                 'views' : v_views,
                 'pub_date' : v_pub_date,
                 'id' : v_id
@@ -568,3 +601,75 @@ def get_all_recent(page):
     recent['videos'] = sorted(recent['videos'], key=lambda k: k['id'], reverse=True)
 
     return recent
+
+#
+# Get all trending videos on full30.com by page
+def get_all_trending(page):
+    trending = { 'pages' : '', 'videos' : [] }
+
+    if not page:
+        page = 1
+    
+    api_url = ALL_TRENDING_API_URL.format(page)
+    
+    html = GetPage(api_url)
+    
+    if not html:
+        return None
+        
+    data = json.loads(html)
+    
+    if not data:
+        return None
+        
+    trending['pages'] = data['meta']['pages']
+
+    for post in data['data']:
+        channel = post['channel']
+        meta = post['meta']
+        
+        v_channel_slug = channel['slug']
+        v_channel_title = channel['title']
+        v_desc = meta['description']
+        v_hash = meta['hashed_identifier']
+        v_b64 = meta['b64_id']
+        v_id = meta['id']
+
+        v_thumbnail = post['images']['thumbnails'][0]
+        if v_thumbnail.startswith('http') == False:
+            v_thumbnail = BASE_URL + v_thumbnail
+
+        v_title = meta['title']
+        v_views = meta['view_count']
+
+        v_url = VIDEO_URL.format(v_hash)        
+        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
+
+        # Remove markup from desc
+        v_desc = remove_tags(v_desc)
+
+        v_details_url = VIDEO_API_URL.format(v_id)
+        
+        trending['videos'].append(
+            { 
+                'title' : v_title, 
+                'url' : v_url, 
+                'thumbnail' : v_thumbnail, 
+                'desc' : v_desc,
+                'channel' : v_channel_title, 
+                'channel_slug' : v_channel_slug,
+                'details_url' : v_details_url,
+                'views' : v_views,
+                'pub_date' : v_pub_date,
+                'id' : v_id
+            })
+
+    # Sort videos by ID which seems like is the proper order
+    trending['videos'] = sorted(trending['videos'], key=lambda k: k['id'], reverse=True)
+
+    return trending
+
+def remove_tags(s):
+    soup = BeautifulSoup(s, 'html.parser')
+    s = soup.get_text()
+    return s
