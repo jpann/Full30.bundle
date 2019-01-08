@@ -1,13 +1,14 @@
 import httplib
 import json
+from datetime import datetime
 from scrape import GetPage as GetPage
 from scrape import GetThumb as GetThumb
-from bs4 import BeautifulSoup
+from utils import RemoveTags as RemoveTags
 
 def MetadataObjectForURL(url):
-    content = GetPage(url)
+    Log.Info('MetadataObjectForURL  url = ' + url)
 
-    Log.Info('MetadataObjectForURL-> ' + url)
+    content = GetPage(url)
 
     if not content:
         return None
@@ -19,23 +20,25 @@ def MetadataObjectForURL(url):
 
     title = data['data'][0]['meta']['title']
     description = data['data'][0]['meta']['description']
+    pub_date = datetime.strptime(data['data'][0]['meta']['publication_date'], '%m/%d/%Y')
 
     thumb = data['data'][0]['images']['thumbnails'][0]
     if thumb.startswith('http') == False:
-        thumb = "https://www.full30.com" + data['data'][0]['images']['thumbnails'][0]
+        thumb = 'https://www.full30.com' + data['data'][0]['images']['thumbnails'][0]
 
     # Remove markup from desc
-    soup = BeautifulSoup(description, 'html.parser')
-    description = soup.get_text()
+    description = RemoveTags(description)
 
     return VideoClipObject(
         title = title,
         summary = description,
-        thumb = Callback(GetThumb, url=thumb)
+        thumb = Callback(GetThumb, url=thumb),
+        originally_available_at = pub_date.date(),
+	    year = pub_date.year,
         )     
 
 def MediaObjectsForURL(url):
-    Log.Info('MetadataObjectsForURL - url = ' + url)
+    Log.Info('MediaObjectsForURL - url = ' + url)
 
     return [
         MediaObject(
@@ -50,11 +53,9 @@ def MediaObjectsForURL(url):
 
 @indirect
 def PlayVideo(url):
-    Log.Info('PlayVideo: ' + url)
+    Log.Info('PlayVideo - url = ' + url)
 
-    resolutions = get_video_resolutions(url)
-
-    video_url = resolutions[0]
+    video_url = GetVideoUrl(url)
 
     if not video_url:
         raise Ex.MediaNotAvailable
@@ -63,40 +64,40 @@ def PlayVideo(url):
 
     return IndirectResponse(VideoClipObject, key=video_url)
 
-def get_video_resolutions(url):
-    Log.Info('get_video_resolutions: ' + url)
-
-    resolutions = []
+def GetVideoUrl(url):
+    Log.Info('GetVideoUrl - url = ' + url)
 
     content = GetPage(url)
 
     if not content:
-        Log.Info('get_video_resolutions: no content returned')
+        Log.Info('GetVideoUrl: no content returned')
         return None
         
     data = json.loads(content)
     
     if not data:
-        Log.Info('get_video_resolutions: no json found')
+        Log.Info('GetVideoUrl: no json found')
         return None
 
     mp4_url = "https:" + data['data'][0]['transforms']['mp4']['resolutions']['854x480']
 
     # If mp4_url contains /None/ then we have to try to get the video url from another source
     if "/None/" in mp4_url:
-        Log.Info('get_video_resolutions: video url seems incorrect, trying new url; url = ' + mp4_url)
         b64_id = data['data'][0]['meta']['b64_id']
 
         outside_url = "https://preflight.epicio.net/api/manifest/{0}".format(b64_id)
+
+        Log.Info('GetVideoUrl: video url seems incorrect, trying new url; url = ' + mp4_url)
+
         outside_content = GetPage(outside_url)
 
         if not outside_content:
-            Log.Info('get_video_resolutions: outside url contains no data')
+            Log.Info('GetVideoUrl: outside url contains no data')
             return None
         
         outside_data = json.loads(outside_content)
         if not outside_data:
-            Log.Info('get_video_resolutions: outside url contains no json')
+            Log.Info('GetVideoUrl: outside url contains no json')
             return None
 
         # check if status is valid
@@ -105,7 +106,5 @@ def get_video_resolutions(url):
         else:
             return None
 
-    resolutions.append(mp4_url)
-
-    return resolutions
+    return mp4_url
 

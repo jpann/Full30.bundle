@@ -8,8 +8,9 @@ from datetime import datetime
 
 GetPage = SharedCodeService.scrape.GetPage
 GetThumb = SharedCodeService.scrape.GetThumb
+RemoveTags = SharedCodeService.utils.RemoveTags
 
-VERSION         = 'V1.0.7'
+VERSION         = 'V1.0.8'
 NAME            = 'Unofficial Full30.com Plex Channel'
 TITLE           = 'Unofficial Full30.com Plex Channel'
 ART             = 'art-default.jpg'
@@ -17,17 +18,20 @@ ICON            = 'icon-default.jpg'
 
 HTTP_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/536.26.17 (KHTML, like Gecko) Version/6.0.2 Safari/536.26.17'
 
-ROUTE                   = '/video/fullthirty'
-BASE_URL                = 'https://www.full30.com'
-CHANNELS_URL            = BASE_URL + '/api/v2.0/channels?page={0}&per_page=25'
-VIDEO_URL               = BASE_URL + '/watch/{0}'
-THUMBNAIL_URL           = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg'
-VIDEO_API_URL           = BASE_URL + '/api/v2.0/videos?filter_id={0}'
-VIDEO_RESOLUTIONS_URL   = BASE_URL + '/api/v2.0/videos?filter_id={0}'
-ALL_RECENT_API_URL      = BASE_URL + '/api/v2.0/videos?order_by=new&page={0}'
-CHANNEL_RECENT_API_URL  = BASE_URL + '/api/v1.0/channel/{0}/recent-videos?page={1}'
+ROUTE                       = '/video/fullthirty'
+BASE_URL                    = 'https://www.full30.com'
+CHANNELS_API_URL            = BASE_URL + '/api/v2.0/channels?page={0}&per_page=25'
+VIDEO_URL                   = BASE_URL + '/watch/{0}'
+THUMBNAIL_URL               = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg'
+VIDEO_DETAILS_API_URL       = BASE_URL + '/api/v2.0/videos?filter_id={0}'
+ALL_RECENT_API_URL          = BASE_URL + '/api/v2.0/videos?order_by=new&page={0}'
+ALL_TRENDING_API_URL        = BASE_URL + '/api/v2.0/videos?order_by=trending&page={0}'
+
+CHANNEL_URL                 = BASE_URL + '/channels/{0}'
+CHANNEL_IMAGE_URL           = BASE_URL + '/cdn/c/b/{0}'
+CHANNEL_RECENT_API_URL      = BASE_URL + '/api/v1.0/channel/{0}/recent-videos?page={1}'
 CHANNEL_MOSTVIEWED_API_URL  = BASE_URL + '/api/v1.0/mostviewed/{0}?page={1}'
-ALL_TRENDING_API_URL    = BASE_URL + '/api/v2.0/videos?order_by=trending&page={0}'
+
 
 def Start():
     Plugin.AddViewGroup('List', viewMode='List', mediaType='items')
@@ -98,7 +102,7 @@ def MainMenu():
 def ListChannels(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    channels = get_channels(page)
+    channels = GetChannels(page)
     limit = channels['pages']
 
     for channel in channels['channels']:
@@ -106,6 +110,9 @@ def ListChannels(title, page = 1):
         thumbnail = channel['thumbnail']
         url = channel['url']
         slug = channel['slug']
+        banner = channel['banner']
+        desc = channel['desc']
+        subscribers = channel['subscribers']
 
         Log.Info('ListChannels - {0}; Slug={1}; Url={2}; Thumb={3}'.format(title, slug, url, thumbnail))
 
@@ -116,10 +123,13 @@ def ListChannels(title, page = 1):
 			    title = title,
 			    channel_url = url,
                 slug = slug,
-                thumbnail = thumbnail
+                thumbnail = thumbnail,
+                banner = banner
 		    ),
 		    title = title,
-            thumb = Callback(GetThumb, url = thumbnail)
+            thumb = Callback(GetThumb, url = thumbnail),
+            art = Callback(GetThumb, url = banner),
+            summary = desc + '\n\r\n\r' + 'Subscribers: {0}'.format(subscribers)
 		))
     
     next_page = int(page) + 1
@@ -144,7 +154,7 @@ def ListChannels(title, page = 1):
 def ListRecentVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    recent_videos = get_all_recent(page)
+    recent_videos = GetAllRecent(page)
     
     limit = recent_videos['pages']
 
@@ -192,7 +202,7 @@ def ListRecentVideos(title, page = 1):
 def ListTrendingVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    trending_videos = get_all_trending(page)
+    trending_videos = GetAllTrending(page)
     
     limit = trending_videos['pages']
 
@@ -237,7 +247,7 @@ def ListTrendingVideos(title, page = 1):
 # List 'Featured Videos' and 'Recent Videos' folders for the channel
 #
 @route(ROUTE + '/Channel')
-def Channel_Menu(title, channel_url, slug, thumbnail):
+def Channel_Menu(title, channel_url, slug, thumbnail, banner):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
     # Display Most Viewed directory
@@ -249,7 +259,8 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
             channel_slug = slug
         ),
         title = 'Most Viewed',
-        thumb = Callback(GetThumb, url=thumbnail)
+        thumb = Callback(GetThumb, url=thumbnail),
+        art = Callback(GetThumb, url=banner),
     ))
 
     # Display Recent directory
@@ -261,7 +272,8 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
             channel_slug = slug
         ),
         title = 'Recent Videos',
-        thumb = Callback(GetThumb, url=thumbnail)
+        thumb = Callback(GetThumb, url=thumbnail),
+        art = Callback(GetThumb, url=banner),
     ))
 
     return oc
@@ -272,7 +284,7 @@ def Channel_Menu(title, channel_url, slug, thumbnail):
 def Channel_MostViewed(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    mostviewed_videos = get_mostviewed(channel_slug, page)
+    mostviewed_videos = GetChannelMostViewed(channel_slug, page)
     
     limit = mostviewed_videos['pages']
 
@@ -320,7 +332,7 @@ def Channel_MostViewed(title, channel_slug, page=1):
 def Channel_ListRecent(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    recent_videos = get_recent(channel_slug, page)
+    recent_videos = GetChannelRecent(channel_slug, page)
     
     limit = recent_videos['pages']
 
@@ -331,6 +343,7 @@ def Channel_ListRecent(title, channel_slug, page=1):
         desc = video['desc']
         thumb = video['thumbnail']
         details_url = video['details_url']
+        pub_date = video['pub_date']
 
         Log.Info('Channel_ListRecent - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
         
@@ -339,7 +352,9 @@ def Channel_ListRecent(title, channel_slug, page=1):
             title = title,
             summary  = desc,
             thumb = Callback(GetThumb, url=thumb),
-            rating_key = details_url
+            rating_key = details_url,
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
         ))		
 
     next_page = int(page) + 1
@@ -360,10 +375,12 @@ def Channel_ListRecent(title, channel_slug, page=1):
 
 #
 # Get list of all channels from full30.com
-def get_channels(page = 1):
+def GetChannels(page = 1):
     channels = { 'pages' : '', 'channels' : [] }
     
-    channel_url = CHANNELS_URL.format(page)
+    channel_url = CHANNELS_API_URL.format(page)
+
+    Log.Info('GetChannels: url = ' + channel_url)
 
     html = GetPage(channel_url)
     
@@ -378,14 +395,16 @@ def get_channels(page = 1):
     channels['pages'] = data['meta']['pages']
 
     for video in data['data']:
-        channel_url = BASE_URL + "/channels/" + video['slug']
+        channel_url = CHANNEL_URL.format(video['slug'])
 
         channel_name = video['title']
-        channel_thumbnail = '' if video['profile_filename'] is None else BASE_URL + "/cdn/c/b/" + video['profile_filename']
+        channel_thumbnail = '' if video['profile_filename'] is None else CHANNEL_IMAGE_URL.format(video['profile_filename'])
         channel_desc = video['description']
-        channel_banner = '' if video['banner_filename'] is None else BASE_URL + "/cdn/c/b/" + video['banner_filename']
+        channel_banner = '' if video['banner_filename'] is None else CHANNEL_IMAGE_URL.format(video['banner_filename'])
         channel_subscribers = video['subscriber_count']
         channel_slug = video['slug']
+
+        channel_desc = RemoveTags(channel_desc)
 
         channels['channels'].append(
             { 
@@ -402,13 +421,15 @@ def get_channels(page = 1):
 
 #
 # Get a list of most viewed videos for specified channel
-def get_mostviewed(slug, page):
+def GetChannelMostViewed(slug, page):
     mostviewed = { 'pages' : '', 'videos' : [] }
 
     if not page:
         page = 1
     
     api_url = CHANNEL_MOSTVIEWED_API_URL.format(slug, page)
+
+    Log.Info('GetChannelMostViewed: url = ' + api_url)
     
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
@@ -439,9 +460,9 @@ def get_mostviewed(slug, page):
         v_pub_date = datetime.strptime(video['publication_date'], '%a, %d %b %Y %H:%M:%S %Z')  
 
         # Remove markup from desc
-        v_desc = remove_tags(v_desc)
+        v_desc = RemoveTags(v_desc)
 
-        v_details_url = VIDEO_API_URL.format(v_id)
+        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
         
         mostviewed['videos'].append(
             { 
@@ -464,7 +485,7 @@ def get_mostviewed(slug, page):
 
 #
 # Get a list of most recent videos for specified channel
-def get_recent(slug, page):
+def GetChannelRecent(slug, page):
     recent = { 'pages' : '', 'videos' : [] }
 
     if not page:
@@ -472,7 +493,7 @@ def get_recent(slug, page):
     
     api_url = CHANNEL_RECENT_API_URL.format(slug, page)
     
-    Log.Info('get_recent-> ' + api_url)
+    Log.Info('GetChannelRecent: url = ' + api_url)
 
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
@@ -498,10 +519,11 @@ def get_recent(slug, page):
         v_thumbnail = THUMBNAIL_URL.format(channel['slug'], video['hashed_identifier'], video['thumbnail_filename'])
         v_title = video['title']
         v_desc = v_title
+        v_pub_date = None
 
         v_url = VIDEO_URL.format(v_b64)      
 
-        v_details_url = VIDEO_API_URL.format(v_id)
+        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
 
         # Get video details
         v_details_html = GetPage(v_details_url)
@@ -511,9 +533,10 @@ def get_recent(slug, page):
 
             if v_details_data:
                 v_desc = v_details_data['data'][0]['meta']['description']
+                v_pub_date = datetime.strptime(v_details_data['data'][0]['meta']['publication_date'], '%m/%d/%Y')
  
         # Remove markup from desc
-        v_desc = remove_tags(v_desc)
+        v_desc = RemoveTags(v_desc)
 
         recent['videos'].append(
             { 
@@ -524,6 +547,7 @@ def get_recent(slug, page):
                 'channel' : v_channel_title, 
                 'channel_slug' : v_channel_slug,
                 'details_url' : v_details_url,
+                'pub_date' : v_pub_date,
                 'id' : v_id
             })
 
@@ -534,13 +558,15 @@ def get_recent(slug, page):
 
 #
 # Get all recent videos on full30.com by page
-def get_all_recent(page):
+def GetAllRecent(page):
     recent = { 'pages' : '', 'videos' : [] }
 
     if not page:
         page = 1
     
     api_url = ALL_RECENT_API_URL.format(page)
+
+    Log.Info('GetAllRecent: url = ' + api_url)
     
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
@@ -566,8 +592,6 @@ def get_all_recent(page):
         v_b64 = meta['b64_id']
         v_id = meta['id']
 
-        #v_thumbnail = meta['thumbnail_filename']
-
         v_thumbnail = post['images']['thumbnails'][0]
         if v_thumbnail.startswith('http') == False:
             v_thumbnail = BASE_URL + v_thumbnail
@@ -579,9 +603,9 @@ def get_all_recent(page):
         v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
 
         # Remove markup from desc
-        v_desc = remove_tags(v_desc)
+        v_desc = RemoveTags(v_desc)
 
-        v_details_url = VIDEO_API_URL.format(v_id)
+        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
         
         recent['videos'].append(
             { 
@@ -604,13 +628,15 @@ def get_all_recent(page):
 
 #
 # Get all trending videos on full30.com by page
-def get_all_trending(page):
+def GetAllTrending(page):
     trending = { 'pages' : '', 'videos' : [] }
 
     if not page:
         page = 1
     
     api_url = ALL_TRENDING_API_URL.format(page)
+
+    Log.Info('GetAllTrending: url = ' + api_url)
     
     html = GetPage(api_url)
     
@@ -646,9 +672,9 @@ def get_all_trending(page):
         v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
 
         # Remove markup from desc
-        v_desc = remove_tags(v_desc)
+        v_desc = RemoveTags(v_desc)
 
-        v_details_url = VIDEO_API_URL.format(v_id)
+        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
         
         trending['videos'].append(
             { 
@@ -668,8 +694,3 @@ def get_all_trending(page):
     trending['videos'] = sorted(trending['videos'], key=lambda k: k['id'], reverse=True)
 
     return trending
-
-def remove_tags(s):
-    soup = BeautifulSoup(s, 'html.parser')
-    s = soup.get_text()
-    return s
