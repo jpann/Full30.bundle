@@ -24,9 +24,7 @@ CHANNELS_API_URL            = BASE_URL + '/api/v2.0/channels?page={0}&per_page=2
 VIDEO_URL                   = BASE_URL + '/watch/{0}'
 THUMBNAIL_URL               = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg'
 VIDEO_DETAILS_API_URL       = BASE_URL + '/api/v2.0/videos?filter_id={0}'
-ALL_RECENT_API_URL          = BASE_URL + '/api/v2.0/videos?order_by=new&page={0}'
-ALL_TRENDING_API_URL        = BASE_URL + '/api/v2.0/videos?order_by=trending&page={0}'
-ALL_HOT_API_URL             = BASE_URL + '/api/v2.0/videos?order_by=hot&page={0}'
+ALL_POPULAR_API_URL         = BASE_URL + '/api/v2.0/videos?order_by={0}&page={1}'
 
 CHANNEL_URL                 = BASE_URL + '/channels/{0}'
 CHANNEL_IMAGE_URL           = BASE_URL + '/cdn/c/b/{0}'
@@ -59,6 +57,18 @@ def MainMenu():
     oc = ObjectContainer(no_cache=True)
 
     #
+    # Add 'All Channels' menu item
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            ListChannels,
+            title = 'All Channels'
+        ),
+        title = 'All Channels',
+        thumb = R(ICON)
+    ))
+
+    #
     # Add 'Hot Videos' menu item
     oc.add(DirectoryObject(
         key =
@@ -72,15 +82,15 @@ def MainMenu():
     ))
 
     #
-    # Add 'Recent Videos' menu item
+    # Add 'New Videos' menu item
     oc.add(DirectoryObject(
         key =
         Callback(
-            ListRecentVideos,
-            title = 'Recent Videos',
+            ListNewVideos,
+            title = 'New Videos',
             page = 1
         ),
-        title = 'Recent Videos',
+        title = 'New Videos',
         thumb = R(ICON)
     ))
 
@@ -94,18 +104,6 @@ def MainMenu():
             page = 1
         ),
         title = 'Trending Videos',
-        thumb = R(ICON)
-    ))
-
-    #
-    # Add 'All Channels' menu item
-    oc.add(DirectoryObject(
-        key =
-        Callback(
-            ListChannels,
-            title = 'All Channels'
-        ),
-        title = 'All Channels',
         thumb = R(ICON)
     ))
 
@@ -162,17 +160,17 @@ def ListChannels(title, page = 1):
     return oc
 
 #
-# List All Recent videos
+# List All New videos
 #
-@route(ROUTE + '/AllRecent')
-def ListRecentVideos(title, page = 1):
+@route(ROUTE + '/AllNew')
+def ListNewVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    recent_videos = GetAllRecent(page)
+    new_videos = GetPopularVideos('new', page)
     
-    limit = recent_videos['pages']
+    limit = new_videos['pages']
 
-    for video in recent_videos['videos']:
+    for video in new_videos['videos']:
         url = video['url']
         channel = video['channel']
         title = video['title']
@@ -182,7 +180,7 @@ def ListRecentVideos(title, page = 1):
         views = video['views']
         pub_date = video['pub_date']
 
-        Log.Info('ListRecentVideos - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
+        Log.Info('ListNewVideos - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
 
         oc.add(VideoClipObject(
             url = details_url,
@@ -199,12 +197,12 @@ def ListRecentVideos(title, page = 1):
         oc.add(DirectoryObject(
             key =
             Callback(
-                ListRecentVideos,
-                title = 'Recent Videos - Page {0}'.format(next_page),
+                ListNewVideos,
+                title = 'New Videos - Page {0}'.format(next_page),
                 page = next_page
             ),
             title = 'Page {0}'.format(next_page),
-            summary = 'View more recent videos'
+            summary = 'View more new videos'
        ))
 
     return oc
@@ -216,7 +214,7 @@ def ListRecentVideos(title, page = 1):
 def ListHotVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    hot_videos = GetAllHot(page)
+    hot_videos = GetPopularVideos('hot', page)
     
     limit = hot_videos['pages']
 
@@ -257,7 +255,6 @@ def ListHotVideos(title, page = 1):
 
     return oc
 
-
 #
 # List All Trending videos
 #
@@ -265,7 +262,7 @@ def ListHotVideos(title, page = 1):
 def ListTrendingVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    trending_videos = GetAllTrending(page)
+    trending_videos = GetPopularVideos('trending', page)
     
     limit = trending_videos['pages']
 
@@ -620,16 +617,16 @@ def GetChannelRecent(slug, page):
     return recent
 
 #
-# Get all recent videos on full30.com by page
-def GetAllRecent(page):
-    recent = { 'pages' : '', 'videos' : [] }
+# Get popular videos by a specific order_by filter
+def GetPopularVideos(order_by, page):
+    result = { 'pages' : '', 'videos' : [] }
 
     if not page:
         page = 1
     
-    api_url = ALL_RECENT_API_URL.format(page)
+    api_url = ALL_POPULAR_API_URL.format(order_by, page)
 
-    Log.Info('GetAllRecent: url = ' + api_url)
+    Log.Info('GetPopularVideos: url = ' + api_url)
     
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
@@ -642,7 +639,7 @@ def GetAllRecent(page):
     if not data:
         return None
         
-    recent['pages'] = data['meta']['pages']
+    result['pages'] = data['meta']['pages']
 
     for post in data['data']:
         channel = post['channel']
@@ -670,7 +667,7 @@ def GetAllRecent(page):
 
         v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
         
-        recent['videos'].append(
+        result['videos'].append(
             { 
                 'title' : v_title, 
                 'url' : v_url, 
@@ -684,142 +681,4 @@ def GetAllRecent(page):
                 'id' : v_id
             })
 
-    # Sort videos by ID which seems like is the proper order
-    recent['videos'] = sorted(recent['videos'], key=lambda k: k['id'], reverse=True)
-
-    return recent
-
-#
-# Get all hot videos on full30.com by page
-def GetAllHot(page):
-    hot = { 'pages' : '', 'videos' : [] }
-
-    if not page:
-        page = 1
-    
-    api_url = ALL_HOT_API_URL.format(page)
-
-    Log.Info('GetAllHot: url = ' + api_url)
-    
-    html = GetPage(api_url)
-    
-    if not html:
-        return None
-        
-    data = json.loads(html)
-    
-    if not data:
-        return None
-        
-    hot['pages'] = data['meta']['pages']
-
-    for post in data['data']:
-        channel = post['channel']
-        meta = post['meta']
-        
-        v_channel_slug = channel['slug']
-        v_channel_title = channel['title']
-        v_desc = meta['description']
-        v_hash = meta['hashed_identifier']
-        v_b64 = meta['b64_id']
-        v_id = meta['id']
-
-        v_thumbnail = post['images']['thumbnails'][0]
-        if v_thumbnail.startswith('http') == False:
-            v_thumbnail = BASE_URL + v_thumbnail
-
-        v_title = meta['title']
-        v_views = meta['view_count']
-
-        v_url = VIDEO_URL.format(v_hash)        
-        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
-
-        # Remove markup from desc
-        v_desc = RemoveTags(v_desc)
-
-        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
-        
-        hot['videos'].append(
-            { 
-                'title' : v_title, 
-                'url' : v_url, 
-                'thumbnail' : v_thumbnail, 
-                'desc' : v_desc,
-                'channel' : v_channel_title, 
-                'channel_slug' : v_channel_slug,
-                'details_url' : v_details_url,
-                'views' : v_views,
-                'pub_date' : v_pub_date,
-                'id' : v_id
-            })
-
-    return hot
-
-#
-# Get all trending videos on full30.com by page
-def GetAllTrending(page):
-    trending = { 'pages' : '', 'videos' : [] }
-
-    if not page:
-        page = 1
-    
-    api_url = ALL_TRENDING_API_URL.format(page)
-
-    Log.Info('GetAllTrending: url = ' + api_url)
-    
-    html = GetPage(api_url)
-    
-    if not html:
-        return None
-        
-    data = json.loads(html)
-    
-    if not data:
-        return None
-        
-    trending['pages'] = data['meta']['pages']
-
-    for post in data['data']:
-        channel = post['channel']
-        meta = post['meta']
-        
-        v_channel_slug = channel['slug']
-        v_channel_title = channel['title']
-        v_desc = meta['description']
-        v_hash = meta['hashed_identifier']
-        v_b64 = meta['b64_id']
-        v_id = meta['id']
-
-        v_thumbnail = post['images']['thumbnails'][0]
-        if v_thumbnail.startswith('http') == False:
-            v_thumbnail = BASE_URL + v_thumbnail
-
-        v_title = meta['title']
-        v_views = meta['view_count']
-
-        v_url = VIDEO_URL.format(v_hash)        
-        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
-
-        # Remove markup from desc
-        v_desc = RemoveTags(v_desc)
-
-        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
-        
-        trending['videos'].append(
-            { 
-                'title' : v_title, 
-                'url' : v_url, 
-                'thumbnail' : v_thumbnail, 
-                'desc' : v_desc,
-                'channel' : v_channel_title, 
-                'channel_slug' : v_channel_slug,
-                'details_url' : v_details_url,
-                'views' : v_views,
-                'pub_date' : v_pub_date,
-                'id' : v_id
-            })
-
-    # Sort videos by ID which seems like is the proper order
-    trending['videos'] = sorted(trending['videos'], key=lambda k: k['id'], reverse=True)
-
-    return trending
+    return result
