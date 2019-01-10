@@ -178,8 +178,8 @@ def ListChannels(title, page = 1):
 def SiteListNewVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    new_videos = GetSiteVideos('new', page)
-    
+    new_videos = GetVideos(SITE_VIDEOS_API_URL.format('new', page))
+
     limit = new_videos['pages']
 
     for video in new_videos['videos']:
@@ -226,7 +226,7 @@ def SiteListNewVideos(title, page = 1):
 def SiteListHotVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    hot_videos = GetSiteVideos('hot', page)
+    hot_videos = GetVideos(SITE_VIDEOS_API_URL.format('hot', page))
     
     limit = hot_videos['pages']
 
@@ -274,7 +274,7 @@ def SiteListHotVideos(title, page = 1):
 def SiteListTrendingVideos(title, page = 1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    trending_videos = GetSiteVideos('trending', page)
+    trending_videos = GetVideos(SITE_VIDEOS_API_URL.format('trending', page))
     
     limit = trending_videos['pages']
 
@@ -405,11 +405,11 @@ def SiteListSectionVideos(title, id, page = 1):
 
     section_title = title
 
-    trending_videos = GetSiteSectionVideos(id, page)
+    videos = GetVideos(SITE_SECTIONS_API_URL.format(id, page))
     
-    limit = trending_videos['pages']
+    limit = videos['pages']
 
-    for video in trending_videos['videos']:
+    for video in videos['videos']:
         url = video['url']
         channel = video['channel']
         title = video['title']
@@ -500,7 +500,7 @@ def ChannelMenu(title, channel_url, slug, thumbnail, banner):
 def ChannelListNew(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    new_videos = GetChannelVideos(channel_slug, 'new', page)
+    new_videos = GetVideos(CHANNEL_VIDEOS_API_URL.format('new', page, channel_slug))
     
     limit = new_videos['pages']
 
@@ -547,7 +547,7 @@ def ChannelListNew(title, channel_slug, page=1):
 def ChannelListHot(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    hot_videos = GetChannelVideos(channel_slug, 'hot', page)
+    hot_videos = GetVideos(CHANNEL_VIDEOS_API_URL.format('hot', page, channel_slug))
     
     limit = hot_videos['pages']
 
@@ -595,7 +595,7 @@ def ChannelListHot(title, channel_slug, page=1):
 def ChannelListTrending(title, channel_slug, page=1):
     oc = ObjectContainer(title2 = title, view_group='InfoList')
 
-    trending_videos = GetChannelVideos(channel_slug, 'trending', page)
+    trending_videos = GetVideos(CHANNEL_VIDEOS_API_URL.format('trending', page, channel_slug))
     
     limit = trending_videos['pages']
 
@@ -684,150 +684,13 @@ def GetChannels(page = 1):
     return channels
 
 #
-# Get site videos by a specific order_by filter
-def GetSiteVideos(order_by, page):
+# Get site videos
+def GetVideos(url):
     result = { 'pages' : '', 'videos' : [] }
 
-    if not page:
-        page = 1
-    
-    api_url = SITE_VIDEOS_API_URL.format(order_by, page)
+    api_url = url
 
-    Log.Info('GetPopularVideos: url = ' + api_url)
-    
-    #html = HTTP.Request(api_url, cacheTime = 1200).content
-    html = GetPage(api_url)
-    
-    if not html:
-        return None
-        
-    data = json.loads(html)
-    
-    if not data:
-        return None
-        
-    result['pages'] = data['meta']['pages']
-
-    for post in data['data']:
-        channel = post['channel']
-        meta = post['meta']
-        
-        v_channel_slug = channel['slug']
-        v_channel_title = channel['title']
-        v_desc = meta['description']
-        v_hash = meta['hashed_identifier']
-        v_b64 = meta['b64_id']
-        v_id = meta['id']
-
-        v_thumbnail = post['images']['thumbnails'][0]
-        if v_thumbnail.startswith('http') == False:
-            v_thumbnail = BASE_URL + v_thumbnail
-
-        v_title = meta['title']
-        v_views = meta['view_count']
-
-        v_url = VIDEO_URL.format(v_hash)        
-        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
-
-        # Remove markup from desc
-        v_desc = RemoveTags(v_desc)
-
-        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
-        
-        result['videos'].append(
-            { 
-                'title' : v_title, 
-                'url' : v_url, 
-                'thumbnail' : v_thumbnail, 
-                'desc' : v_desc,
-                'channel' : v_channel_title, 
-                'channel_slug' : v_channel_slug,
-                'details_url' : v_details_url,
-                'views' : v_views,
-                'pub_date' : v_pub_date,
-                'id' : v_id
-            })
-
-    return result
-
-#
-# Get site videos by a specific order_by filter
-def GetSiteSectionVideos(id, page):
-    result = { 'pages' : '', 'videos' : [] }
-
-    if not page:
-        page = 1
-    
-    api_url = SITE_SECTIONS_API_URL.format(id, page)
-
-    Log.Info('GetSiteSectionVideos: url = ' + api_url)
-    
-    #html = HTTP.Request(api_url, cacheTime = 1200).content
-    html = GetPage(api_url)
-    
-    if not html:
-        return None
-        
-    data = json.loads(html)
-    
-    if not data:
-        return None
-        
-    result['pages'] = data['meta']['pages']
-
-    for post in data['data']:
-        channel = post['channel']
-        meta = post['meta']
-        
-        v_channel_slug = channel['slug']
-        v_channel_title = channel['title']
-        v_desc = meta['description']
-        v_hash = meta['hashed_identifier']
-        v_b64 = meta['b64_id']
-        v_id = meta['id']
-
-        v_thumbnail = post['images']['thumbnails'][0]
-        if v_thumbnail.startswith('http') == False:
-            v_thumbnail = BASE_URL + v_thumbnail
-
-        v_title = meta['title']
-        v_views = meta['view_count']
-
-        v_url = VIDEO_URL.format(v_hash)        
-        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
-
-        # Remove markup from desc
-        v_desc = RemoveTags(v_desc)
-
-        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
-        
-        result['videos'].append(
-            { 
-                'title' : v_title, 
-                'url' : v_url, 
-                'thumbnail' : v_thumbnail, 
-                'desc' : v_desc,
-                'channel' : v_channel_title, 
-                'channel_slug' : v_channel_slug,
-                'details_url' : v_details_url,
-                'views' : v_views,
-                'pub_date' : v_pub_date,
-                'id' : v_id
-            })
-
-    return result
-
-#
-# Get videos for a specific channel using an order_by filter
-def GetChannelVideos(channel, order_by, page):
-    result = { 'pages' : '', 'videos' : [] }
-
-    if not page:
-        page = 1
-    
-    api_url = CHANNEL_VIDEOS_API_URL.format(order_by, page, channel)
-
-    Log.Info('GetChannelVideos: url = ' + api_url)
+    Log.Info('GetVideos: url = ' + api_url)
     
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
