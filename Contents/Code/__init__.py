@@ -24,7 +24,8 @@ CHANNELS_API_URL            = BASE_URL + '/api/v2.0/channels?page={0}&per_page=2
 VIDEO_URL                   = BASE_URL + '/watch/{0}'
 THUMBNAIL_URL               = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180_{2}.jpg'
 VIDEO_DETAILS_API_URL       = BASE_URL + '/api/v2.0/videos?filter_id={0}'
-SITE_VIDEOS_API_URL          = BASE_URL + '/api/v2.0/videos?order_by={0}&page={1}'
+SITE_VIDEOS_API_URL         = BASE_URL + '/api/v2.0/videos?order_by={0}&page={1}'
+SITE_SECTIONS_API_URL       = BASE_URL + '/api/v2.0/videos?filter_section_id={0}&page={1}'
 CHANNEL_URL                 = BASE_URL + '/channels/{0}'
 CHANNEL_IMAGE_URL           = BASE_URL + '/cdn/c/b/{0}'
 CHANNEL_VIDEOS_API_URL      = BASE_URL + '/api/v2.0/videos?order_by={0}&page={1}&channel={2}'
@@ -102,6 +103,18 @@ def MainMenu():
             page = 1
         ),
         title = 'Trending Videos',
+        thumb = R(ICON)
+    ))
+
+    #
+    # Sections menu item
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            SiteSections,
+            title = 'Sections',
+        ),
+        title = 'Sections',
         thumb = R(ICON)
     ))
 
@@ -298,6 +311,137 @@ def SiteListTrendingVideos(title, page = 1):
             ),
             title = 'Page {0}'.format(next_page),
             summary = 'View more trending videos'
+       ))
+
+    return oc
+
+#
+# List Sections
+#
+@route(ROUTE + '/Sections')
+def SiteSections(title):
+    oc = ObjectContainer(title2 = title, view_group='InfoList')
+
+    oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListSectionVideos,
+                title = 'Long Guns',
+                id = 1,
+                page = 1
+            ),
+            title = 'Long Guns',
+            summary = 'Long Guns'
+       ))
+
+    oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListSectionVideos,
+                title = 'Hand Guns',
+                id = 2,
+                page = 1
+            ),
+            title = 'Hand Guns',
+            summary = 'Hand Guns'
+       ))
+
+    oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListSectionVideos,
+                title = 'Gear & Accessories',
+                id = 3,
+                page = 1
+            ),
+            title = 'Gear & Accessories',
+            summary = 'Gear & Accessories'
+       ))
+
+    oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListSectionVideos,
+                title = 'Hunting & Outdoors',
+                id = 4,
+                page = 1
+            ),
+            title = 'Hunting & Outdoors',
+            summary = 'Hunting & Outdoors'
+       ))
+
+    oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListSectionVideos,
+                title = 'Sounding Board',
+                id = 5,
+                page = 1
+            ),
+            title = 'Sounding Board',
+            summary = 'Sounding Board'
+       ))
+    
+    oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListSectionVideos,
+                title = 'Miscellaneous',
+                id = 6,
+                page = 1
+            ),
+            title = 'Miscellaneous',
+            summary = 'Miscellaneous'
+       ))
+
+    return oc
+
+#
+# List Section content by id
+#
+@route(ROUTE + '/SectionsList')
+def SiteListSectionVideos(title, id, page = 1):
+    oc = ObjectContainer(title2 = title, view_group='InfoList')
+
+    section_title = title
+
+    trending_videos = GetSiteSectionVideos(id, page)
+    
+    limit = trending_videos['pages']
+
+    for video in trending_videos['videos']:
+        url = video['url']
+        channel = video['channel']
+        title = video['title']
+        desc = video['desc']
+        thumb = video['thumbnail']
+        details_url = video['details_url']
+        views = video['views']
+        pub_date = video['pub_date']
+
+        Log.Info('SiteListSectionVideos - {0}; id={1}; Url={2}; Thumb={3}'.format(title, id, url, thumb))
+
+        oc.add(VideoClipObject(
+            url = details_url,
+            title = '{0} - {1}'.format(channel, title),
+            summary = '{0} views - {1}'.format(views, desc),
+            thumb = Callback(GetThumb, url=thumb),
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
+            rating_key = details_url
+        ))	
+
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                SiteListTrendingVideos,
+                title = '{0} Videos - Page {1}'.format(section_title, next_page),
+                page = next_page
+            ),
+            title = '{0} Videos - Page {1}'.format(section_title, next_page),
+            summary = 'View more {0} videos'.format(section_title)
        ))
 
     return oc
@@ -550,6 +694,73 @@ def GetSiteVideos(order_by, page):
     api_url = SITE_VIDEOS_API_URL.format(order_by, page)
 
     Log.Info('GetPopularVideos: url = ' + api_url)
+    
+    #html = HTTP.Request(api_url, cacheTime = 1200).content
+    html = GetPage(api_url)
+    
+    if not html:
+        return None
+        
+    data = json.loads(html)
+    
+    if not data:
+        return None
+        
+    result['pages'] = data['meta']['pages']
+
+    for post in data['data']:
+        channel = post['channel']
+        meta = post['meta']
+        
+        v_channel_slug = channel['slug']
+        v_channel_title = channel['title']
+        v_desc = meta['description']
+        v_hash = meta['hashed_identifier']
+        v_b64 = meta['b64_id']
+        v_id = meta['id']
+
+        v_thumbnail = post['images']['thumbnails'][0]
+        if v_thumbnail.startswith('http') == False:
+            v_thumbnail = BASE_URL + v_thumbnail
+
+        v_title = meta['title']
+        v_views = meta['view_count']
+
+        v_url = VIDEO_URL.format(v_hash)        
+        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
+
+        # Remove markup from desc
+        v_desc = RemoveTags(v_desc)
+
+        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
+        
+        result['videos'].append(
+            { 
+                'title' : v_title, 
+                'url' : v_url, 
+                'thumbnail' : v_thumbnail, 
+                'desc' : v_desc,
+                'channel' : v_channel_title, 
+                'channel_slug' : v_channel_slug,
+                'details_url' : v_details_url,
+                'views' : v_views,
+                'pub_date' : v_pub_date,
+                'id' : v_id
+            })
+
+    return result
+
+#
+# Get site videos by a specific order_by filter
+def GetSiteSectionVideos(id, page):
+    result = { 'pages' : '', 'videos' : [] }
+
+    if not page:
+        page = 1
+    
+    api_url = SITE_SECTIONS_API_URL.format(id, page)
+
+    Log.Info('GetSiteSectionVideos: url = ' + api_url)
     
     #html = HTTP.Request(api_url, cacheTime = 1200).content
     html = GetPage(api_url)
