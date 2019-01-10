@@ -10,7 +10,7 @@ GetPage = SharedCodeService.scrape.GetPage
 GetThumb = SharedCodeService.scrape.GetThumb
 RemoveTags = SharedCodeService.utils.RemoveTags
 
-VERSION         = 'V1.0.8'
+VERSION         = 'V1.0.9'
 NAME            = 'Unofficial Full30.com Plex Channel'
 TITLE           = 'Unofficial Full30.com Plex Channel'
 ART             = 'art-default.jpg'
@@ -26,6 +26,7 @@ THUMBNAIL_URL               = BASE_URL + '/cdn/videos/{0}/{1}/thumbnails/320x180
 VIDEO_DETAILS_API_URL       = BASE_URL + '/api/v2.0/videos?filter_id={0}'
 ALL_RECENT_API_URL          = BASE_URL + '/api/v2.0/videos?order_by=new&page={0}'
 ALL_TRENDING_API_URL        = BASE_URL + '/api/v2.0/videos?order_by=trending&page={0}'
+ALL_HOT_API_URL             = BASE_URL + '/api/v2.0/videos?order_by=hot&page={0}'
 
 CHANNEL_URL                 = BASE_URL + '/channels/{0}'
 CHANNEL_IMAGE_URL           = BASE_URL + '/cdn/c/b/{0}'
@@ -56,6 +57,19 @@ def Start():
 @handler(ROUTE, TITLE, thumb = ICON, art = ART)
 def MainMenu():
     oc = ObjectContainer(no_cache=True)
+
+    #
+    # Add 'Hot Videos' menu item
+    oc.add(DirectoryObject(
+        key =
+        Callback(
+            ListHotVideos,
+            title = 'Hot Videos',
+            page = 1
+        ),
+        title = 'Hot Videos',
+        thumb = R(ICON)
+    ))
 
     #
     # Add 'Recent Videos' menu item
@@ -194,6 +208,55 @@ def ListRecentVideos(title, page = 1):
        ))
 
     return oc
+
+#
+# List All Hot videos
+#
+@route(ROUTE + '/AllHot')
+def ListHotVideos(title, page = 1):
+    oc = ObjectContainer(title2 = title, view_group='InfoList')
+
+    hot_videos = GetAllHot(page)
+    
+    limit = hot_videos['pages']
+
+    for video in hot_videos['videos']:
+        url = video['url']
+        channel = video['channel']
+        title = video['title']
+        desc = video['desc']
+        thumb = video['thumbnail']
+        details_url = video['details_url']
+        views = video['views']
+        pub_date = video['pub_date']
+
+        Log.Info('ListHotVideos - {0}; Channel={1}; Url={2}; Thumb={3}'.format(title, channel, url, thumb))
+
+        oc.add(VideoClipObject(
+            url = details_url,
+            title = '{0} - {1}'.format(channel, title),
+            summary = '{0} views - {1}'.format(views, desc),
+            thumb = Callback(GetThumb, url=thumb),
+            originally_available_at = pub_date.date(),
+	        year = pub_date.year,
+            rating_key = details_url
+        ))	
+
+    next_page = int(page) + 1
+    if next_page <= limit:
+        oc.add(DirectoryObject(
+            key =
+            Callback(
+                ListHotVideos,
+                title = 'Hot Videos - Page {0}'.format(next_page),
+                page = next_page
+            ),
+            title = 'Page {0}'.format(next_page),
+            summary = 'View more hot videos'
+       ))
+
+    return oc
+
 
 #
 # List All Trending videos
@@ -625,6 +688,72 @@ def GetAllRecent(page):
     recent['videos'] = sorted(recent['videos'], key=lambda k: k['id'], reverse=True)
 
     return recent
+
+#
+# Get all hot videos on full30.com by page
+def GetAllHot(page):
+    hot = { 'pages' : '', 'videos' : [] }
+
+    if not page:
+        page = 1
+    
+    api_url = ALL_HOT_API_URL.format(page)
+
+    Log.Info('GetAllHot: url = ' + api_url)
+    
+    html = GetPage(api_url)
+    
+    if not html:
+        return None
+        
+    data = json.loads(html)
+    
+    if not data:
+        return None
+        
+    hot['pages'] = data['meta']['pages']
+
+    for post in data['data']:
+        channel = post['channel']
+        meta = post['meta']
+        
+        v_channel_slug = channel['slug']
+        v_channel_title = channel['title']
+        v_desc = meta['description']
+        v_hash = meta['hashed_identifier']
+        v_b64 = meta['b64_id']
+        v_id = meta['id']
+
+        v_thumbnail = post['images']['thumbnails'][0]
+        if v_thumbnail.startswith('http') == False:
+            v_thumbnail = BASE_URL + v_thumbnail
+
+        v_title = meta['title']
+        v_views = meta['view_count']
+
+        v_url = VIDEO_URL.format(v_hash)        
+        v_pub_date = datetime.strptime(meta['publication_date'], '%m/%d/%Y')
+
+        # Remove markup from desc
+        v_desc = RemoveTags(v_desc)
+
+        v_details_url = VIDEO_DETAILS_API_URL.format(v_id)
+        
+        hot['videos'].append(
+            { 
+                'title' : v_title, 
+                'url' : v_url, 
+                'thumbnail' : v_thumbnail, 
+                'desc' : v_desc,
+                'channel' : v_channel_title, 
+                'channel_slug' : v_channel_slug,
+                'details_url' : v_details_url,
+                'views' : v_views,
+                'pub_date' : v_pub_date,
+                'id' : v_id
+            })
+
+    return hot
 
 #
 # Get all trending videos on full30.com by page
