@@ -6,11 +6,9 @@ This is an unoffical Plex channel that lets you watch Full30.com videos on any d
 
 ## Features
 - Stream videos from all channels on Full30.com.
-- Stream site's all recent videos.
-- Stream videos by channel's featured videos list.
-- Stream videos by channel's recent videos list.
-- Stream videos by channel's most viewed videos list.
-- Stream HD video when available.
+- Stream site's new, hot and trending videos.
+- Stream videos by channel's new, hot, and trending videos list.
+- Stream videos by section (e.g. "Long Guns", "Hand Guns").
 
 ## Installation
 
@@ -21,13 +19,3 @@ This is an unoffical Plex channel that lets you watch Full30.com videos on any d
   - Unix based platforms need to `chown plex:plex -R Full30.bundle` after moving it into the [Plug-ins](https://support.plex.tv/hc/en-us/articles/201106098-How-do-I-find-the-Plug-Ins-folder-) directory _(`user:group` may differ by platform)_
   - Restart Plex Media Server
 
-## Screenshots
-
-### Demo
-![Demo](/Demo.gif?raw=true "Demo")
-
-### Channel List
-![Channel List](/channel_list_screenshot.png?raw=true "Channel List")
-
-### Recent Video List
-![Recent Videos](/recent_videos_screenshot.png?raw=true "Recent Videos")
